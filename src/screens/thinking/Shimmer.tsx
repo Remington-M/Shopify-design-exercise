@@ -18,7 +18,7 @@ const GHOST_FADE = linear(0.15) // 'finishing': ghost fades out
 
 // Ghost fill: Figma is ~4% black; darker so it reads
 const GHOST = 'ghost-fill'
-const GHOST_HEX = 'rgba(0,0,0,0.075)'
+const GHOST_HEX = 'rgba(0,0,0,0.055)'
 
 export function Shimmer({ stage, onDone }: { stage: ShimmerStage; onDone?: () => void }) {
   const labelIndex = useThinkingTimeline(stage, onDone)

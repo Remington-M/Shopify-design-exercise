@@ -31,15 +31,16 @@ const params = new URLSearchParams(location.search)
 
 // Thinking variants. Anything in src/screens/thinking/*.tsx that exports a component named after
 // its file (e.g. Shimmer.tsx → Shimmer) is picked up automatically.
+const ORDER = ['steps', 'shimmer', 'browse']
 type ThinkingProps = { stage: StepsStage; onDone?: () => void }
 const found = import.meta.glob<Record<string, ComponentType<ThinkingProps>>>('./screens/thinking/*.tsx', { eager: true })
 const VARIANTS: { id: string; label: string; C: ComponentType<ThinkingProps> }[] = [
-  { id: 'trail', label: 'Trail', C: Steps },
+  { id: 'steps', label: 'Steps', C: Steps },
   ...Object.entries(found).flatMap(([path, mod]) => {
     const name = path.split('/').pop()!.replace('.tsx', '')
     return mod[name] ? [{ id: name.toLowerCase(), label: name, C: mod[name] }] : []
   }),
-]
+].sort((a, b) => ORDER.indexOf(a.id) - ORDER.indexOf(b.id))
 const initialStage = (STAGES.find((s) => s === params.get('stage')) ?? 'empty') as Stage
 
 export default function App() {
@@ -49,7 +50,7 @@ export default function App() {
 
 function Prototype() {
   const [stage, setStage] = useState<Stage>(initialStage)
-  const [variant, setVariant] = useState(() => VARIANTS.find((v) => v.id === params.get('v'))?.id ?? 'trail')
+  const [variant, setVariant] = useState(() => VARIANTS.find((v) => v.id === params.get('v'))?.id ?? 'steps')
   const Thinking = (VARIANTS.find((v) => v.id === variant) ?? VARIANTS[0]).C
   const [run, setRun] = useState(0) // bump to remount the flow on reset
   const composing = stage === 'empty' || stage === 'active'
@@ -107,7 +108,7 @@ function Prototype() {
   const reset = () => jump('empty')
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-[#e9e9ec] py-6">
+    <div className="flex min-h-screen flex-col items-center justify-center gap-5 bg-[#e9e9ec] py-6">
       <LayoutGroup key={run}>
         <div className="relative h-[874px] w-[402px] shrink-0 overflow-hidden rounded-[40px] bg-[#fdfdfd] shadow-[0_30px_80px_rgba(0,0,0,0.18)]">
           <StatusBar />
@@ -188,9 +189,10 @@ function Prototype() {
         </div>
       </LayoutGroup>
 
-      {/* Stage jumper for review */}
       {/* Variant switcher */}
-      <div className="fixed left-3 top-3 flex gap-1 rounded-full bg-white/80 p-1 text-[13px] font-medium shadow-sm backdrop-blur">
+      <div className="flex flex-col items-center gap-2">
+        <p className="text-[12px] font-medium uppercase tracking-[0.08em] text-black/45">Searching state</p>
+        <div className="flex gap-1 rounded-full bg-white/80 p-1 text-[13px] font-medium shadow-sm backdrop-blur">
         {VARIANTS.map((v) => (
           <button
             key={v.id}
@@ -204,8 +206,11 @@ function Prototype() {
             {v.label}
           </button>
         ))}
+        </div>
       </div>
 
+
+      {/* Stage jumper for review */}
       <div className="fixed bottom-3 left-3 flex gap-1 font-mono text-[11px]">
         {STAGES.map((s) => (
           <button

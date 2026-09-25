@@ -12,4 +12,4 @@ html {
 .cursor-blink { animation: caret-blink 1s step-end infinite; }
 
 /* Shimmer ghost blocks (plain CSS so it renders everywhere) */
-.ghost-fill { background-color: rgba(0, 0, 0, 0.075); }
+.ghost-fill { background-color: rgba(0, 0, 0, 0.055); }
