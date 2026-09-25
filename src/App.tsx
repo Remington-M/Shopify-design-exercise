@@ -19,7 +19,7 @@ const TITLE_START_S = 0.45 // let the bar settle first
 const TITLE_WORD_FADE_S = 0.4
 const TITLE_RISE_Y = 15
 const TITLE_WORD_STAGGER_S = 0.033
-const STEPS_DELAY_MS = 750 // loader arrives as the title is almost in
+const STEPS_DELAY_MS = 1100 // loader arrives as the title is almost in
 const RESULTS_DELAY_MS = 200 // let the steps dismiss before results mount
 
 // Typing: per-character with a little human jitter
@@ -65,7 +65,7 @@ function Prototype() {
     const t = window.setTimeout(() => setShowResults(true), RESULTS_DELAY_MS)
     return () => clearTimeout(t)
   }, [stage, run])
-  const titleSpring = useSpring('title', { stiffness: 120, dampingRatio: 1 })
+  const titleSpring = useSpring('title', { stiffness: 300, dampingRatio: 0.8 })
   const [showSteps, setShowSteps] = useState(initialStage !== 'thinking')
   useEffect(() => {
     if (stage !== 'thinking') { if (!composing) setShowSteps(true); return }
@@ -156,7 +156,7 @@ function Prototype() {
               </div>
               <div className="mt-3">
                 {showSteps && (
-                  <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ opacity: linear(0.2) }}>
+                  <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ opacity: linear(0.35) }}>
                     <Thinking stage={stage} onDone={() => setStage('finishing')} />
                   </motion.div>
                 )}

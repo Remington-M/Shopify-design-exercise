@@ -20,11 +20,14 @@ export const LABELS = ['Thinking...', 'Searching the web...', 'Reading 16 source
 export const DONE_LABEL = 'Done'
 
 // ─── Springs + fades ─────────────────────────────────────────────────────────
-const SPRINGS = { label: BASE, header: BASE }
-const LABEL_SHIFT_Y = 8
-const LABEL_EXIT = linear(0.12) // old label fades out fast
-const LABEL_ENTER = linear(0.2, 0.04) // new label fades in, slightly overlapping the exit
-const HEADER_FADE = linear(0.2)
+const SPRINGS = { word: BASE, chevron: BASE }
+const LABEL_EXIT_Y = -3 // old label: slight upward drift while fading
+const LABEL_EXIT = linear(0.12) // old label fades out fully BEFORE the new one starts (mode="wait")
+const WORD_RISE_Y = 6 // new label: each word rises from +6px
+const WORD_FADE_S = 0.18
+const WORD_STAGGER_S = 0.04
+const DONE_EXIT = linear(0.15) // "Done" row just fades (no movement)…
+const TOGGLE_ENTER = linear(0.2) // …then "Assistant steps ›" fades in (no movement)
 
 export const text12 = 'text-[12px] leading-[16px] tracking-[-0.2px]'
 
@@ -53,49 +56,86 @@ export function useThinkingTimeline(stage: ThinkingStage, onDone?: () => void): 
   return labelIndex
 }
 
-/** 16px row: spinner + status label ('thinking'), "Done" ('finishing'), "Assistant steps ›" ('results'). Has px-6. */
-export function ThinkingHeader({ stage, labelIndex }: { stage: ThinkingStage; labelIndex: number }) {
-  const labelT = useSpring('thinking.label', SPRINGS.label)
-  const headerT = useSpring('thinking.header', SPRINGS.header)
+/** Label that swaps sequentially: old fades out, then new animates in word by word. */
+function WordLabel({ label }: { label: string }) {
+  const wordT = useSpring('thinking.word', SPRINGS.word)
+  return (
+    <AnimatePresence initial={false} mode="wait">
+      <motion.span
+        key={label}
+        className="block whitespace-nowrap"
+        exit={{ opacity: 0, y: LABEL_EXIT_Y, transition: LABEL_EXIT }}
+      >
+        {label.split(' ').map((w, i, arr) => (
+          <motion.span
+            key={i}
+            className="inline-block"
+            initial={{ opacity: 0, y: WORD_RISE_Y }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ ...wordT, delay: i * WORD_STAGGER_S, opacity: linear(WORD_FADE_S, i * WORD_STAGGER_S) }}
+          >
+            {w}
+            {i < arr.length - 1 ? '\u00a0' : ''}
+          </motion.span>
+        ))}
+      </motion.span>
+    </AnimatePresence>
+  )
+}
+
+/**
+ * 16px row: spinner + status label ('thinking'), "Done" ('finishing'), "Assistant steps ›" ('results'). Has px-6.
+ * Pass `onToggle` + `expanded` to make "Assistant steps" a working disclosure (chevron rotates).
+ */
+export function ThinkingHeader({
+  stage,
+  labelIndex,
+  expanded = false,
+  onToggle,
+}: {
+  stage: ThinkingStage
+  labelIndex: number
+  expanded?: boolean
+  onToggle?: () => void
+}) {
+  const chevronT = useSpring('thinking.chevron', SPRINGS.chevron)
   const isResults = stage === 'results'
   const label = stage !== 'thinking' ? DONE_LABEL : LABELS[Math.min(Math.max(labelIndex, 0), 2)]
 
   return (
     <div className="relative h-4 px-6 text-black/75">
-      <AnimatePresence initial={false} mode="popLayout">
+      <AnimatePresence initial={false} mode="wait">
         {isResults ? (
           <motion.button
             key="toggle"
             type="button"
+            onClick={onToggle}
+            aria-expanded={onToggle ? expanded : undefined}
             className={`flex cursor-pointer items-center font-medium ${text12}`}
-            initial={{ opacity: 0, y: LABEL_SHIFT_Y }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -LABEL_SHIFT_Y }}
-            transition={{ ...headerT, opacity: HEADER_FADE }}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={TOGGLE_ENTER}
           >
             Assistant steps
-            <img src={chevronIcon} alt="" width={16} height={16} style={{ transform: 'rotate(-90deg)' }} />
+            <motion.img
+              src={chevronIcon}
+              alt=""
+              width={16}
+              height={16}
+              initial={false}
+              animate={{ rotate: expanded ? 0 : -90 }}
+              transition={chevronT}
+            />
           </motion.button>
         ) : (
           <motion.div
             key="status"
             className="flex items-center gap-[9px]"
-            exit={{ opacity: 0, y: -LABEL_SHIFT_Y }}
-            transition={{ ...headerT, opacity: HEADER_FADE }}
+            exit={{ opacity: 0, transition: DONE_EXIT }}
           >
             <Spinner done={stage !== 'thinking'} size={16} />
             <span className={`relative ${text12}`}>
-              <AnimatePresence initial={false} mode="popLayout">
-                <motion.span
-                  key={label}
-                  className="block whitespace-nowrap"
-                  initial={{ opacity: 0, y: LABEL_SHIFT_Y }}
-                  animate={{ opacity: 1, y: 0, transition: { ...labelT, opacity: LABEL_ENTER } }}
-                  exit={{ opacity: 0, y: -LABEL_SHIFT_Y, transition: { ...labelT, opacity: LABEL_EXIT } }}
-                >
-                  {label}
-                </motion.span>
-              </AnimatePresence>
+              <WordLabel label={label} />
             </span>
           </motion.div>
         )}

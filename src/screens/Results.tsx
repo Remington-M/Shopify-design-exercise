@@ -33,13 +33,18 @@ export const CARD_SCALE = 0.92
 /** Suggestion chips scale in from this (origin center, no Y). */
 export const CHIP_SCALE = 0.6
 /** Suggestion chips also slide in from the right by this. */
-export const CHIP_X = 24
+export const CHIP_X = 0
+/** Cards' X move + fade start this much after their Y, so the rise is mostly hidden. */
+export const CARD_XFADE_DELAY = 0.12
+/** Meta row: slow fade at the very end, no movement. */
+export const META_FADE = 0.5
+export const META_DELAY = 0.2
 /** Opacity fades are a linear tween (seconds), decoupled from spring motion. */
 export const FADE_DURATION = 0.2
 /** Springs (stiffness + dampingRatio); live-tunable with ?tune. */
 export const SPRINGS = {
   block: BASE, // results.block — intro, header, follow-up text (Y)
-  card: { stiffness: 150, dampingRatio: 0.65 }, // results.card — card X + scale
+  card: { stiffness: 120, dampingRatio: 0.75 }, // results.card — card X + scale
   chip: { stiffness: 200, dampingRatio: 0.7 }, // results.chip — chip scale
 }
 
@@ -81,24 +86,30 @@ function useEnter() {
       return {
         initial: { opacity: 0, x: CARD_X, y: RISE_Y, scale: CARD_SCALE },
         animate: { opacity: 1, x: 0, y: 0, scale: 1 },
-        transition: { x: move(card, t), y: move(block, t), scale: move(card, t), opacity: fade(t) },
+        transition: {
+          x: move(card, t + CARD_XFADE_DELAY),
+          y: move(block, t),
+          scale: move(card, t + CARD_XFADE_DELAY),
+          opacity: fade(t + CARD_XFADE_DELAY),
+        },
+        style: { willChange: 'transform, opacity' },
       }
     },
     /** Suggestion chips: scale only, origin center. */
     pop: (i: number) => {
       const t = T.chips + i * CHIP_STAGGER
       return {
-        initial: { opacity: 0, x: CHIP_X, y: RISE_Y, scale: CHIP_SCALE },
-        animate: { opacity: 1, x: 0, y: 0, scale: 1 },
-        transition: { x: move(card, t), y: move(block, t), scale: move(chip, t), opacity: fade(t) },
+        initial: { opacity: 0, y: RISE_Y, scale: CHIP_SCALE },
+        animate: { opacity: 1, y: 0, scale: 1 },
+        transition: { y: move(block, t), scale: move(chip, t), opacity: fade(t) },
         style: { originX: 0.5, originY: 0.5 },
       }
     },
     /** Meta row: opacity only. */
     fadeIn: (t: number) => ({
-      initial: { opacity: 0, y: RISE_Y },
-      animate: { opacity: 1, y: 0 },
-      transition: { y: move(block, t), opacity: fade(t) },
+      initial: { opacity: 0 },
+      animate: { opacity: 1 },
+      transition: { opacity: linear(META_FADE, START_DELAY + t + META_DELAY) },
     }),
   }
 }

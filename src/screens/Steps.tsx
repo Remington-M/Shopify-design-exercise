@@ -2,11 +2,10 @@
 // Figma: 6013:3215 (Thinking row), 6013:3231 (Done), 6013:3246 / 6013:3294 (Assistant steps), 6013:3330 (list)
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { AnimatePresence, motion } from 'motion/react'
-import { Spinner } from '../components/Spinner'
 import { useSpring } from '../lib/tune'
 import { BASE, linear } from '../lib/spring'
 import searchIcon from '../assets/steps/search.svg'
-import chevronIcon from '../assets/steps/chevron-down.svg'
+import { ThinkingHeader, THINKING_T, text12, useThinkingTimeline } from './thinking/_shared'
 import favRunningChannel from '../assets/steps/therunningchannel.png'
 import favRunRepeat from '../assets/steps/runrepeat.png'
 import favReddit from '../assets/steps/reddit.png'
@@ -15,14 +14,14 @@ import favRunnersWorld from '../assets/steps/runnersworld.png'
 export type StepsStage = 'thinking' | 'finishing' | 'results'
 
 // ─── Timeline (ms from mount of the 'thinking' stage) ─────────────────────────
+// Label changes + onDone come from the shared useThinkingTimeline (THINKING_T); rows/chips key off the same moments.
 const T = {
-  searching: 1000, // "Searching" row + label → "Searching the web..." (status row alone says "Thinking..." until then)
-  queryFirst: 1400, // first query chip
+  searching: THINKING_T.searching, // "Searching" row (label → "Searching the web...")
+  queryFirst: THINKING_T.searching + 400, // first query chip
   queryStagger: 300, // gap between query chips (incl. "+ 12 more")
-  reading: 3400, // "Reading" row + label → "Reading 16 sources..."
-  sourceFirst: 3800,
+  reading: THINKING_T.reading, // "Reading" row (label → "Reading 16 sources...")
+  sourceFirst: THINKING_T.reading + 400,
   sourceStagger: 300,
-  done: 6400, // onDone()
 }
 
 // ─── Springs (stiffness + dampingRatio; live-tunable with ?tune) ──────────────
@@ -30,19 +29,15 @@ const T = {
 const SPRINGS = {
   height: BASE, // list container height (grow / collapse) so content below reflows
   item: BASE, // each step title scaling in (0.85 → 1, left origin)
-  chip: { stiffness: 200, dampingRatio: 0.7 }, // each chip popping in (0.6 → 1, center origin)
-  label: BASE, // status label swap
-  chevron: BASE, // chevron rotate
+  chip: { stiffness: 150, dampingRatio: 0.7 }, // each chip popping in (0.6 → 1, center origin)
 }
 const FADE_S = 0.2
-const FADE = linear(FADE_S) // opacity is a linear tween, decoupled from the springs
 const ITEM_ENTER_SCALE = 0.85 // step titles scale 0.85 → 1 from their left edge
 const CHIP_ENTER_SCALE = 0.6 // chips scale 0.6 → 1 from their center
-const CHIP_FADE_S = 0.15
+const CHIP_FADE_S = 0.2
 const EXPAND_STAGGER_S = 0.03 // per-element delay when re-expanding in results
 const COLLAPSE_HEIGHT_DELAY_S = FADE_S // collapse: fade items out first, then close the gap
 const DISMISS_FADE_S = 0.15 // entering 'results': items fade out, then height SNAPS closed (no spring)
-const LABEL_SHIFT_Y = 8
 const STEPS_INSET = 0 // px from the content column (0 = aligns with "Assistant steps"; 25 = with status label text)
 
 // ─── Content ──────────────────────────────────────────────────────────────────
@@ -54,27 +49,19 @@ const SOURCES = [
   { label: 'runnersworld.com', icon: favRunnersWorld },
 ]
 const MORE = '+ 12 more'
-const TOTAL_SOURCES = 16
-const LABELS = {
-  thinking: 'Thinking...',
-  searching: 'Searching the web...',
-  reading: `Reading ${TOTAL_SOURCES} sources...`,
-  done: 'Done',
-}
 
-type Phase = 'none' | 'thinking' | 'searching' | 'reading'
-type Progress = { phase: Phase; steps: number; queries: number; sources: number }
-const FULL: Progress = { phase: 'reading', steps: 2, queries: QUERIES.length + 1, sources: SOURCES.length + 1 }
-const EMPTY: Progress = { phase: 'none', steps: 0, queries: 0, sources: 0 }
+type Progress = { steps: number; queries: number; sources: number }
+const FULL: Progress = { steps: 2, queries: QUERIES.length + 1, sources: SOURCES.length + 1 }
+const EMPTY: Progress = { steps: 0, queries: 0, sources: 0 }
 
 // Ordered events → progress snapshot
 const EVENTS: { at: number; apply: (p: Progress) => Progress }[] = [
-  { at: T.searching, apply: (p) => ({ ...p, phase: 'searching', steps: 1 }) },
+  { at: T.searching, apply: (p) => ({ ...p, steps: 1 }) },
   ...Array.from({ length: QUERIES.length + 1 }, (_, i) => ({
     at: T.queryFirst + i * T.queryStagger,
     apply: (p: Progress) => ({ ...p, queries: i + 1 }),
   })),
-  { at: T.reading, apply: (p) => ({ ...p, phase: 'reading', steps: 2 }) },
+  { at: T.reading, apply: (p) => ({ ...p, steps: 2 }) },
   ...Array.from({ length: SOURCES.length + 1 }, (_, i) => ({
     at: T.sourceFirst + i * T.sourceStagger,
     apply: (p: Progress) => ({ ...p, sources: i + 1 }),
@@ -85,34 +72,24 @@ const listVariants = {
   exit: (dismiss: boolean) => ({ opacity: 0, transition: linear(dismiss ? DISMISS_FADE_S : FADE_S) }),
 }
 
-const text12 = 'text-[12px] leading-[16px] tracking-[-0.2px]'
 
 export function Steps({ stage, onDone }: { stage: StepsStage; onDone?: () => void }) {
   const heightT = useSpring('steps.height', SPRINGS.height)
-  const labelT = useSpring('steps.label', SPRINGS.label)
-  const chevronT = useSpring('steps.chevron', SPRINGS.chevron)
 
   const [progress, setProgress] = useState<Progress>(stage === 'thinking' ? EMPTY : FULL)
   const [expanded, setExpanded] = useState(false)
   const [userToggled, setUserToggled] = useState(false)
 
-  // Run the timeline while thinking
-  const onDoneRef = useRef(onDone)
-  onDoneRef.current = onDone
-  const doneCalled = useRef(false)
+  // Shared label timeline (also fires onDone once)
+  const labelIndex = useThinkingTimeline(stage, onDone)
+
+  // Rows/chips timeline while thinking
   useEffect(() => {
     if (stage !== 'thinking') {
       setProgress(FULL)
       return
     }
     const timers = EVENTS.map((e) => setTimeout(() => setProgress(e.apply), e.at))
-    timers.push(
-      setTimeout(() => {
-        if (doneCalled.current) return
-        doneCalled.current = true
-        onDoneRef.current?.()
-      }, T.done),
-    )
     return () => timers.forEach(clearTimeout)
   }, [stage])
 
@@ -120,14 +97,6 @@ export function Steps({ stage, onDone }: { stage: StepsStage; onDone?: () => voi
   // Stage-driven dismissal (not a user tap): quick fade, then snap height closed
   const dismiss = isResults && !userToggled
   const open = !isResults || expanded
-  const label =
-    stage !== 'thinking'
-      ? LABELS.done
-      : progress.phase === 'reading'
-        ? LABELS.reading
-        : progress.phase === 'searching'
-          ? LABELS.searching
-          : LABELS.thinking
 
   // Measure list content so height changes (growth + collapse) spring instead of jumping
   const innerRef = useRef<HTMLDivElement>(null)
@@ -142,62 +111,16 @@ export function Steps({ stage, onDone }: { stage: StepsStage; onDone?: () => voi
   }, [])
 
   return (
-    <div className="w-full px-6 text-black/75">
-      {/* Header row */}
-      <div className="relative h-4">
-        <AnimatePresence initial={false} mode="popLayout">
-          {isResults ? (
-            <motion.button
-              key="toggle"
-              type="button"
-              onClick={() => {
-                setUserToggled(true)
-                setExpanded((v) => !v)
-              }}
-              aria-expanded={expanded}
-              className={`flex cursor-pointer items-center font-medium ${text12}`}
-              initial={{ opacity: 0, y: LABEL_SHIFT_Y }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -LABEL_SHIFT_Y }}
-              transition={{ ...labelT, opacity: FADE }}
-            >
-              Assistant steps
-              <motion.img
-                src={chevronIcon}
-                alt=""
-                width={16}
-                height={16}
-                initial={false}
-                animate={{ rotate: expanded ? 0 : -90 }}
-                transition={chevronT}
-              />
-            </motion.button>
-          ) : (
-            <motion.div
-              key="status"
-              className="flex items-center gap-[9px]"
-              exit={{ opacity: 0, y: -LABEL_SHIFT_Y }}
-              transition={{ ...labelT, opacity: FADE }}
-            >
-              <Spinner done={stage !== 'thinking'} />
-              <span className={`relative ${text12}`}>
-                <AnimatePresence initial={false} mode="popLayout">
-                  <motion.span
-                    key={label}
-                    className="block whitespace-nowrap"
-                    initial={{ opacity: 0, y: LABEL_SHIFT_Y }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: -LABEL_SHIFT_Y }}
-                    transition={{ ...labelT, opacity: FADE }}
-                  >
-                    {label}
-                  </motion.span>
-                </AnimatePresence>
-              </span>
-            </motion.div>
-          )}
-        </AnimatePresence>
-      </div>
+    <div className="w-full text-black/75">
+      <ThinkingHeader
+        stage={stage}
+        labelIndex={labelIndex}
+        expanded={expanded}
+        onToggle={() => {
+          setUserToggled(true)
+          setExpanded((v) => !v)
+        }}
+      />
 
       {/* Steps list: no clipping; each element animates on its own */}
       <motion.div
@@ -215,8 +138,8 @@ export function Steps({ stage, onDone }: { stage: StepsStage; onDone?: () => voi
             {open && (
               <motion.div
                 key="list"
-                className="pt-2"
-                style={{ paddingLeft: STEPS_INSET }}
+                className="px-6 pt-2"
+                style={{ paddingLeft: 24 + STEPS_INSET }}
                 variants={listVariants}
                 exit="exit"
               >
