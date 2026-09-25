@@ -48,3 +48,9 @@ export function toCss(s: Spring, fps = 60) {
   const easing = `linear(${pts.map((p) => +p.toFixed(4)).join(', ')})`
   return { duration, easing, css: `${duration}ms ${easing}` }
 }
+
+/** Baseline spring for most motion. */
+export const BASE: Spring = { stiffness: 200, dampingRatio: 1 }
+
+/** Opacity is always a linear tween, decoupled from the spring. */
+export const linear = (duration = 0.2, delay = 0) => ({ type: 'tween' as const, ease: 'linear' as const, duration, delay })

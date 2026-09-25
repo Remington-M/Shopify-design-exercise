@@ -1,6 +1,7 @@
 import { motion } from 'motion/react'
 import type { ReactNode } from 'react'
 import { useSpring } from '../lib/tune'
+import { BASE, linear } from '../lib/spring'
 import { ProductCard, type Product } from './results/ProductCard'
 import arrowRight from '../assets/results/icon-arrow-right.svg'
 import thumbsUp from '../assets/results/icon-thumbs-up.svg'
@@ -27,10 +28,11 @@ export const RISE_Y = 16
 export const CARD_X = 64
 /** Springs (stiffness + dampingRatio); live-tunable with ?tune. */
 export const SPRINGS = {
-  block: { stiffness: 300, dampingRatio: 0.9 }, // results.block — text, header, follow-up, meta
-  card: { stiffness: 260, dampingRatio: 0.85 }, // results.card — product cards
-  fade: { stiffness: 200, dampingRatio: 1 }, // results.fade — opacity for everything
+  block: BASE, // results.block — text, header, follow-up, meta
+  card: BASE, // results.card — product cards
 }
+/** Opacity fades are a linear tween (seconds), decoupled from the spring motion. */
+export const FADE_DURATION = 0.2
 
 // Order in the vertical stagger (index × STAGGER). Cards start at SHELF and add CARD_STAGGER each.
 const ORDER = { text: 0, header: 1, shelf: 2, followText: 3, suggestion: 4, meta: 6 } as const
@@ -47,10 +49,9 @@ const SOURCES = [source1, source2, source3]
 function useEnter() {
   const block = useSpring('results.block', SPRINGS.block)
   const card = useSpring('results.card', SPRINGS.card)
-  const fade = useSpring('results.fade', SPRINGS.fade)
   const at = (delay: number, move: typeof block) => ({
     default: { ...move, delay: START_DELAY + delay },
-    opacity: { ...fade, delay: START_DELAY + delay },
+    opacity: linear(FADE_DURATION, START_DELAY + delay),
   })
   return {
     rise: (slot: number) => ({

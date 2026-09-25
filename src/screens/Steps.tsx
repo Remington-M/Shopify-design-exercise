@@ -4,6 +4,7 @@ import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { AnimatePresence, motion } from 'motion/react'
 import { Spinner } from '../components/Spinner'
 import { useSpring } from '../lib/tune'
+import { BASE, linear } from '../lib/spring'
 import searchIcon from '../assets/steps/search.svg'
 import chevronIcon from '../assets/steps/chevron-down.svg'
 import favRunningChannel from '../assets/steps/therunningchannel.png'
@@ -26,17 +27,20 @@ const T = {
 }
 
 // ─── Springs (stiffness + dampingRatio; live-tunable with ?tune) ──────────────
+// Springs drive movement + scale; opacity is always a linear tween.
 const SPRINGS = {
-  height: { stiffness: 380, dampingRatio: 0.9 }, // list container height (grow / collapse)
-  line: { stiffness: 300, dampingRatio: 1 }, // vertical line growing down to the last tick
-  row: { stiffness: 500, dampingRatio: 0.85 }, // step rows entering
-  chip: { stiffness: 700, dampingRatio: 0.6 }, // chips popping in
-  label: { stiffness: 600, dampingRatio: 1 }, // status label swap
-  chevron: { stiffness: 500, dampingRatio: 0.8 }, // chevron rotate
+  height: BASE, // list container height (grow / collapse) so content below reflows
+  item: BASE, // each step title / chip scaling in
+  label: BASE, // status label swap
+  chevron: BASE, // chevron rotate
 }
-const ROW_ENTER_Y = 6
-const CHIP_ENTER_SCALE = 0.6
+const FADE_S = 0.2
+const FADE = linear(FADE_S) // opacity is a linear tween, decoupled from the springs
+const ITEM_ENTER_SCALE = 0.85 // each element scales 0.85 → 1 from its left edge
+const EXPAND_STAGGER_S = 0.03 // per-element delay when re-expanding in results
+const COLLAPSE_HEIGHT_DELAY_S = FADE_S // collapse: fade items out first, then close the gap
 const LABEL_SHIFT_Y = 8
+const STEPS_INSET = 0 // px from the content column (0 = aligns with "Assistant steps"; 25 = with status label text)
 
 // ─── Content ──────────────────────────────────────────────────────────────────
 const QUERIES = ['shoes', 'running shoes', 'Nike shoes', 'marathon training shoes']
@@ -143,7 +147,7 @@ export function Steps({ stage, onDone }: { stage: StepsStage; onDone?: () => voi
               initial={{ opacity: 0, y: LABEL_SHIFT_Y }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -LABEL_SHIFT_Y }}
-              transition={labelT}
+              transition={{ ...labelT, opacity: FADE }}
             >
               Assistant steps
               <motion.img
@@ -161,7 +165,7 @@ export function Steps({ stage, onDone }: { stage: StepsStage; onDone?: () => voi
               key="status"
               className="flex items-center gap-[9px]"
               exit={{ opacity: 0, y: -LABEL_SHIFT_Y }}
-              transition={labelT}
+              transition={{ ...labelT, opacity: FADE }}
             >
               <Spinner done={stage !== 'thinking'} />
               <span className={`relative ${text12}`}>
@@ -172,7 +176,7 @@ export function Steps({ stage, onDone }: { stage: StepsStage; onDone?: () => voi
                     initial={{ opacity: 0, y: LABEL_SHIFT_Y }}
                     animate={{ opacity: 1, y: 0 }}
                     exit={{ opacity: 0, y: -LABEL_SHIFT_Y }}
-                    transition={labelT}
+                    transition={{ ...labelT, opacity: FADE }}
                   >
                     {label}
                   </motion.span>
@@ -183,129 +187,109 @@ export function Steps({ stage, onDone }: { stage: StepsStage; onDone?: () => voi
         </AnimatePresence>
       </div>
 
-      {/* Steps list */}
+      {/* Steps list: no clipping; each element animates on its own */}
       <motion.div
-        className="overflow-hidden"
         initial={false}
-        animate={{ height: open ? contentH : 0, opacity: open ? 1 : 0 }}
-        transition={heightT}
+        animate={{ height: open ? contentH : 0 }}
+        transition={{ ...heightT, delay: open ? 0 : COLLAPSE_HEIGHT_DELAY_S }}
       >
-        <div ref={innerRef} className="pt-2">
-          <StepList progress={progress} />
+        <div ref={innerRef}>
+          <AnimatePresence initial={false}>
+            {open && (
+              <motion.div
+                key="list"
+                className="pt-2"
+                style={{ paddingLeft: STEPS_INSET }}
+                exit={{ opacity: 0 }}
+                transition={{ opacity: FADE }}
+              >
+                <StepList progress={progress} stagger={isResults} />
+              </motion.div>
+            )}
+          </AnimatePresence>
         </div>
       </motion.div>
     </div>
   )
 }
 
-function StepList({ progress }: { progress: Progress }) {
-  const lineT = useSpring('steps.line', SPRINGS.line)
-  const listRef = useRef<HTMLDivElement>(null)
-  const lastTickRef = useRef<HTMLDivElement>(null)
-  const [lineH, setLineH] = useState(0)
-
-  // Line runs from the top of the list down to the last visible tick
-  useLayoutEffect(() => {
-    const list = listRef.current
-    const tick = lastTickRef.current
-    if (!list || !tick) return setLineH(0)
-    // offsetTop chain is transform-free (unlike getBoundingClientRect on entering rows)
-    let y = 0
-    let n: HTMLElement | null = tick
-    while (n && n !== list) {
-      y += n.offsetTop
-      n = n.offsetParent as HTMLElement | null
-    }
-    setLineH(y + 1)
-  }, [progress.steps, progress.queries, progress.sources])
-
+function StepList({ progress, stagger }: { progress: Progress; stagger: boolean }) {
   const { steps } = progress
+  // Stagger order (only used when re-expanding in results; live timeline uses delay 0)
+  let i = 0
+  const d = () => (stagger ? i++ * EXPAND_STAGGER_S : 0)
   return (
-    <div ref={listRef} className="relative pt-1">
-      <motion.div
-        className="absolute left-0 top-0 w-px rounded-full bg-black/10"
-        initial={{ height: 0 }}
-        animate={{ height: lineH }}
-        transition={lineT}
-      />
-      <div className="flex flex-col gap-4">
-        <AnimatePresence initial={false}>
-          {steps >= 1 && (
-            <StepRow key="thinking" title="Thinking" bold={false} tickRef={steps === 1 ? lastTickRef : undefined} />
-          )}
-          {steps >= 2 && (
-            <StepRow key="searching" title="Searching" tickRef={steps === 2 ? lastTickRef : undefined}>
-              {QUERIES.slice(0, progress.queries).map((q) => (
-                <Chip key={q} icon={<img src={searchIcon} alt="" width={16} height={16} />}>
-                  {q}
-                </Chip>
-              ))}
-              {progress.queries > QUERIES.length && <Chip key="more">{MORE}</Chip>}
-            </StepRow>
-          )}
-          {steps >= 3 && (
-            <StepRow key="reading" title="Reading" tickRef={steps === 3 ? lastTickRef : undefined}>
-              {SOURCES.slice(0, progress.sources).map((s) => (
-                <Chip
-                  key={s.label}
-                  icon={
-                    <img
-                      src={s.icon}
-                      alt=""
-                      className="size-3 rounded-full border border-[rgba(5,41,77,0.1)] object-cover"
-                    />
-                  }
-                >
-                  {s.label}
-                </Chip>
-              ))}
-              {progress.sources > SOURCES.length && <Chip key="more">{MORE}</Chip>}
-            </StepRow>
-          )}
-        </AnimatePresence>
-      </div>
+    <div className="flex flex-col gap-4">
+      {steps >= 1 && <StepRow title="Thinking" bold={false} delay={d()} />}
+      {steps >= 2 && (
+        <StepRow title="Searching" delay={d()}>
+          {QUERIES.slice(0, progress.queries).map((q) => (
+            <Chip key={q} delay={d()} icon={<img src={searchIcon} alt="" width={16} height={16} />}>
+              {q}
+            </Chip>
+          ))}
+          {progress.queries > QUERIES.length && <Chip key="more" delay={d()}>{MORE}</Chip>}
+        </StepRow>
+      )}
+      {steps >= 3 && (
+        <StepRow title="Reading" delay={d()}>
+          {SOURCES.slice(0, progress.sources).map((s) => (
+            <Chip
+              key={s.label}
+              delay={d()}
+              icon={
+                <img src={s.icon} alt="" className="size-3 rounded-full border border-[rgba(5,41,77,0.1)] object-cover" />
+              }
+            >
+              {s.label}
+            </Chip>
+          ))}
+          {progress.sources > SOURCES.length && <Chip key="more" delay={d()}>{MORE}</Chip>}
+        </StepRow>
+      )}
     </div>
   )
+}
+
+/** Scale 0.85 → 1 from the left edge (spring) + linear opacity fade. */
+function useItemMotion(delay: number) {
+  const itemT = useSpring('steps.item', SPRINGS.item)
+  return {
+    initial: { opacity: 0, scale: ITEM_ENTER_SCALE },
+    animate: { opacity: 1, scale: 1 },
+    transition: { ...itemT, delay, opacity: linear(FADE_S, delay) },
+    style: { originX: 0 },
+  }
 }
 
 function StepRow({
   title,
   bold = true,
-  tickRef,
+  delay,
   children,
 }: {
   title: string
   bold?: boolean
-  tickRef?: React.Ref<HTMLDivElement>
+  delay: number
   children?: React.ReactNode
 }) {
-  const rowT = useSpring('steps.row', SPRINGS.row)
+  const m = useItemMotion(delay)
   return (
-    <motion.div
-      className="flex items-start gap-[6px]"
-      initial={{ opacity: 0, y: ROW_ENTER_Y }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={rowT}
-    >
-      <div className="w-[10px] shrink-0 pt-2">
-        <div ref={tickRef} className="h-px w-full rounded-full bg-[#e3e3e3]" />
-      </div>
-      <div className="flex min-w-0 flex-1 flex-col gap-1">
-        <p className={`${bold ? 'font-semibold' : ''} ${text12}`}>{title}</p>
-        {children && <div className="flex flex-wrap gap-2">{children}</div>}
-      </div>
-    </motion.div>
+    <div className="flex flex-col gap-1">
+      <motion.p {...m} className={`w-fit ${bold ? 'font-semibold' : ''} ${text12}`}>
+        {title}
+      </motion.p>
+      {children && <div className="flex flex-wrap gap-2">{children}</div>}
+    </div>
   )
 }
 
-function Chip({ icon, children }: { icon?: React.ReactNode; children: React.ReactNode }) {
-  const chipT = useSpring('steps.chip', SPRINGS.chip)
+function Chip({ icon, delay, children }: { icon?: React.ReactNode; delay: number; children: React.ReactNode }) {
+  const m = useItemMotion(delay)
   return (
     <motion.div
+      {...m}
       className={`flex h-7 items-center gap-[2px] rounded-full bg-black/[0.04] ${icon ? 'pl-1' : 'pl-2'} pr-2 py-1`}
-      initial={{ opacity: 0, scale: CHIP_ENTER_SCALE }}
-      animate={{ opacity: 1, scale: 1 }}
-      transition={chipT}
     >
       {icon && <span className="flex size-4 shrink-0 items-center justify-center">{icon}</span>}
       <span className={`whitespace-nowrap font-medium text-black ${text12}`}>{children}</span>
