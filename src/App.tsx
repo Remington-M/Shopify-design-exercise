@@ -9,7 +9,7 @@ export default function App() {
   const s = { stiffness, dampingRatio }
 
   return (
-    <main style={{ fontFamily: 'system-ui', padding: 32, maxWidth: 560, margin: '0 auto' }}>
+    <main className="font-sans p-8 max-w-[560px] mx-auto">
       <h1 style={{ fontSize: 20 }}>Spring test</h1>
       <label style={{ display: 'block' }}>
         stiffness {stiffness}
