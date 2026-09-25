@@ -108,7 +108,7 @@ function Prototype() {
   const reset = () => jump('empty')
 
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center gap-5 bg-[#e9e9ec] py-6">
+    <div className="flex min-h-screen flex-col items-center justify-center gap-10 bg-[#e9e9ec] py-8">
       <LayoutGroup key={run}>
         <div className="relative h-[874px] w-[402px] shrink-0 overflow-hidden rounded-[40px] bg-[#fdfdfd] shadow-[0_30px_80px_rgba(0,0,0,0.18)]">
           <StatusBar />
@@ -199,7 +199,7 @@ function Prototype() {
             onClick={() => {
               setVariant(v.id)
               const u = new URL(location.href); u.searchParams.set('v', v.id); history.replaceState(null, '', u)
-              jump(stage === 'empty' || stage === 'active' ? stage : 'thinking')
+              jump('thinking')
             }}
             className={`rounded-full px-3 py-1 ${variant === v.id ? 'bg-black text-white' : 'text-black/70'}`}
           >

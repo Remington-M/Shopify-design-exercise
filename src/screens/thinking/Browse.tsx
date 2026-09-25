@@ -1,42 +1,41 @@
-// Browse variant of the "AI thinking" moment: shared spinner + status header, then an abstract
-// grayscale shoe that cycles through running-shoe categories, as if the agent is browsing products.
+// Browse variant of the "AI thinking" moment: shared spinner + status header, then a generic gray
+// running-shoe silhouette that cycles through shoe categories, as if the agent is browsing products.
 import { useEffect, useState } from 'react'
 import { AnimatePresence, motion } from 'motion/react'
 import { useSpring } from '../../lib/tune'
 import { linear, type Spring } from '../../lib/spring'
 import { ThinkingHeader, useThinkingTimeline, text12 } from './_shared'
-import product1 from '../../assets/results/product-1.png'
-import product2 from '../../assets/results/product-2.png'
-import product3 from '../../assets/results/product-3.png'
+import sil1 from '../../assets/browse/sil-1.png'
+import sil2 from '../../assets/browse/sil-2.png'
+import sil3 from '../../assets/browse/sil-3.png'
 
 export type BrowseStage = 'thinking' | 'finishing' | 'results'
 
 // ─── Cycle ───────────────────────────────────────────────────────────────────
 const CYCLE_MS = 900 // time each shoe is on stage
-const SHOE_OFFSET_X = 40 // enter from +X, exit to -X
-const SHOE_SCALE_FROM = 0.9 // enter from / exit to this scale
+const SHOE_TRAVEL_X = 60 // enters from +X (right), exits to -X (left). No scale.
 
 // ─── Springs + fades ─────────────────────────────────────────────────────────
-const SHOE_SPRING: Spring = { stiffness: 200, dampingRatio: 0.8 }
-const SHOE_ENTER_FADE = linear(0.2)
-const SHOE_EXIT_FADE = linear(0.15)
+const SHOE_SPRING: Spring = { stiffness: 300, dampingRatio: 0.6 } // snappy, slight bounce on x
+const SHOE_ENTER_FADE = linear(0.18)
+const SHOE_EXIT_FADE = linear(0.12)
 const CAPTION_ENTER_FADE = linear(0.15, 0.05)
 const CAPTION_EXIT_FADE = linear(0.1)
 const CARD_FADE = linear(0.15) // 'finishing': card fades out
 
-// ─── Shoe treatment: desaturated + low contrast, white bg lifted to exactly the card gray (0.96),
-// so the photo box disappears into the card and only a soft gray shoe remains.
-const CARD_BG = '#f5f5f5' // 0.96
-const SHOE_FILTER = 'grayscale(1) contrast(0.5) brightness(1.28)' // white → 0.75 → 0.96, black → 0.25 → 0.32
+const CARD_BG = '#f5f5f5'
+const SHOE_W = 220
 
-const SHOES = [
-  { src: product1, caption: 'Carbon-plated racers', flip: false, scale: 1 },
-  { src: product2, caption: 'Daily trainers', flip: true, scale: 0.94 },
-  { src: product3, caption: 'Max-cushion', flip: false, scale: 1.04 },
-  { src: product1, caption: 'Lightweight tempo', flip: true, scale: 0.9 },
-  { src: product2, caption: 'Stability', flip: false, scale: 1 },
+// Silhouettes traced from real running-shoe photos (flat, so they read as generic)
+type Shoe = { caption: string; src: string; w: number }
+const SHOES: Shoe[] = [
+  { caption: 'Carbon-plated racers', src: sil1, w: 1 },
+  { caption: 'Max-cushion', src: sil2, w: 1 },
+  { caption: 'Lightweight tempo', src: sil3, w: 1 },
+  { caption: 'Daily trainers', src: sil1, w: 0.94 },
+  { caption: 'Stability', src: sil2, w: 0.96 },
 ]
-
+const SHOE_OPACITY = 0.12
 
 export function Browse({ stage, onDone }: { stage: BrowseStage; onDone?: () => void }) {
   const labelIndex = useThinkingTimeline(stage, onDone)
@@ -79,20 +78,11 @@ function ShoeCycle({ running }: { running: boolean }) {
           <motion.div
             key={i}
             className="absolute inset-0 flex items-center justify-center"
-            initial={{ opacity: 0, x: SHOE_OFFSET_X, scale: SHOE_SCALE_FROM }}
-            animate={{ opacity: 1, x: 0, scale: 1, transition: { ...shoeT, opacity: SHOE_ENTER_FADE } }}
-            exit={{ opacity: 0, x: -SHOE_OFFSET_X, scale: SHOE_SCALE_FROM, transition: { ...shoeT, opacity: SHOE_EXIT_FADE } }}
+            initial={{ opacity: 0, x: SHOE_TRAVEL_X }}
+            animate={{ opacity: 1, x: 0, transition: { x: shoeT, opacity: SHOE_ENTER_FADE } }}
+            exit={{ opacity: 0, x: -SHOE_TRAVEL_X, transition: { x: shoeT, opacity: SHOE_EXIT_FADE } }}
           >
-            <img
-              src={shoe.src}
-              alt=""
-              draggable={false}
-              className="block size-[190px] select-none object-contain"
-              style={{
-                filter: SHOE_FILTER,
-                transform: `scale(${shoe.flip ? -shoe.scale : shoe.scale}, ${shoe.scale})`,
-              }}
-            />
+            <ShoeSvg shoe={shoe} />
           </motion.div>
         </AnimatePresence>
       </div>
@@ -101,7 +91,7 @@ function ShoeCycle({ running }: { running: boolean }) {
       <div className={`relative h-4 w-full text-center text-black/50 ${text12}`}>
         <AnimatePresence initial={false}>
           <motion.span
-            key={shoe.caption + i}
+            key={i}
             className="absolute inset-0 whitespace-nowrap"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1, transition: CAPTION_ENTER_FADE }}
@@ -112,5 +102,17 @@ function ShoeCycle({ running }: { running: boolean }) {
         </AnimatePresence>
       </div>
     </div>
+  )
+}
+
+function ShoeSvg({ shoe }: { shoe: Shoe }) {
+  return (
+    <img
+      src={shoe.src}
+      alt=""
+      draggable={false}
+      style={{ width: SHOE_W * 1.25 * shoe.w, opacity: SHOE_OPACITY }}
+      className="block select-none"
+    />
   )
 }
