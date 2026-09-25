@@ -5,7 +5,8 @@ import { BASE, linear } from './lib/spring'
 import { StatusBar } from './components/StatusBar'
 import { DROP, QUERY, SearchBar, Y_SPRING } from './components/SearchBar'
 import { Compose } from './screens/Compose'
-import { Steps } from './screens/Steps'
+import { Steps, type StepsStage } from './screens/Steps'
+import type { ComponentType } from 'react'
 import { Results } from './screens/Results'
 import { SpinnerLab } from './screens/SpinnerLab'
 import cross from './assets/cross.svg'
@@ -27,6 +28,18 @@ const TYPE_IDLE_MS = 500 // cursor goes back to blinking after this
 const charDelay = (i: number, ch: string) => (ch === ' ' ? 75 : 42) + Math.round(15 * Math.sin(i * 1.7))
 
 const params = new URLSearchParams(location.search)
+
+// Thinking variants. Anything in src/screens/thinking/*.tsx that exports a component named after
+// its file (e.g. Shimmer.tsx → Shimmer) is picked up automatically.
+type ThinkingProps = { stage: StepsStage; onDone?: () => void }
+const found = import.meta.glob<Record<string, ComponentType<ThinkingProps>>>('./screens/thinking/*.tsx', { eager: true })
+const VARIANTS: { id: string; label: string; C: ComponentType<ThinkingProps> }[] = [
+  { id: 'trail', label: 'Trail', C: Steps },
+  ...Object.entries(found).flatMap(([path, mod]) => {
+    const name = path.split('/').pop()!.replace('.tsx', '')
+    return mod[name] ? [{ id: name.toLowerCase(), label: name, C: mod[name] }] : []
+  }),
+]
 const initialStage = (STAGES.find((s) => s === params.get('stage')) ?? 'empty') as Stage
 
 export default function App() {
@@ -36,6 +49,8 @@ export default function App() {
 
 function Prototype() {
   const [stage, setStage] = useState<Stage>(initialStage)
+  const [variant, setVariant] = useState(() => VARIANTS.find((v) => v.id === params.get('v'))?.id ?? 'trail')
+  const Thinking = (VARIANTS.find((v) => v.id === variant) ?? VARIANTS[0]).C
   const [run, setRun] = useState(0) // bump to remount the flow on reset
   const composing = stage === 'empty' || stage === 'active'
   const base = useSpring('base', BASE)
@@ -142,7 +157,7 @@ function Prototype() {
               <div className="mt-3">
                 {showSteps && (
                   <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ opacity: linear(0.2) }}>
-                    <Steps stage={stage} onDone={() => setStage('finishing')} />
+                    <Thinking stage={stage} onDone={() => setStage('finishing')} />
                   </motion.div>
                 )}
               </div>
@@ -174,6 +189,23 @@ function Prototype() {
       </LayoutGroup>
 
       {/* Stage jumper for review */}
+      {/* Variant switcher */}
+      <div className="fixed left-3 top-3 flex gap-1 rounded-full bg-white/80 p-1 text-[13px] font-medium shadow-sm backdrop-blur">
+        {VARIANTS.map((v) => (
+          <button
+            key={v.id}
+            onClick={() => {
+              setVariant(v.id)
+              const u = new URL(location.href); u.searchParams.set('v', v.id); history.replaceState(null, '', u)
+              jump(stage === 'empty' || stage === 'active' ? stage : 'thinking')
+            }}
+            className={`rounded-full px-3 py-1 ${variant === v.id ? 'bg-black text-white' : 'text-black/70'}`}
+          >
+            {v.label}
+          </button>
+        ))}
+      </div>
+
       <div className="fixed bottom-3 left-3 flex gap-1 font-mono text-[11px]">
         {STAGES.map((s) => (
           <button
