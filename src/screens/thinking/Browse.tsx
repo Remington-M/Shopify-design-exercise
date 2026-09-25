@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react'
 import { AnimatePresence, motion } from 'motion/react'
 import { useSpring } from '../../lib/tune'
 import { linear, type Spring } from '../../lib/spring'
-import { ThinkingHeader, useThinkingTimeline, text12 } from './_shared'
+import { DISMISS_MS, ThinkingHeader, useDismissed, useThinkingTimeline, text12 } from './_shared'
 import sil1 from '../../assets/browse/shoe-1.svg'
 import sil2 from '../../assets/browse/shoe-2.svg'
 import sil3 from '../../assets/browse/shoe-3.svg'
@@ -21,7 +21,7 @@ const SHOE_ENTER_FADE = linear(0.18)
 const SHOE_EXIT_FADE = linear(0.12)
 const CAPTION_ENTER_FADE = linear(0.15, 0.05)
 const CAPTION_EXIT_FADE = linear(0.1)
-const CARD_FADE = linear(0.15) // 'finishing': card fades out
+const CARD_FADE = linear(DISMISS_MS / 1000) // 'finishing': card fades out, then unmounts (height → 0)
 
 const CARD_BG = '#f5f5f5'
 const SHOE_W = 220
@@ -39,13 +39,14 @@ const SHOE_OPACITY = 0.85
 
 export function Browse({ stage, onDone }: { stage: BrowseStage; onDone?: () => void }) {
   const labelIndex = useThinkingTimeline(stage, onDone)
+  const gone = useDismissed(stage)
 
   return (
     <div className="w-[402px] max-w-full text-black/75">
       <ThinkingHeader stage={stage} labelIndex={labelIndex} />
 
-      {/* Shoe card: fades out on 'finishing', unmounted (no height) on 'results' */}
-      {stage !== 'results' && (
+      {/* Shoe card: on 'finishing' fades out over DISMISS_MS, then unmounts (no height) before results mount */}
+      {!gone && (
         <motion.div
           initial={false}
           animate={{ opacity: stage === 'thinking' ? 1 : 0 }}

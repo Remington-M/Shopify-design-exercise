@@ -31,6 +31,26 @@ const TOGGLE_ENTER = linear(0.2) // …then "Assistant steps ›" fades in (no m
 
 export const text12 = 'text-[12px] leading-[16px] tracking-[-0.2px]'
 
+/** Dismiss timing when leaving 'thinking': the below-header content fades out, then unmounts (height → 0). */
+export const DISMISS_MS = 150
+
+/**
+ * True once the below-header content should be gone: DISMISS_MS after entering 'finishing',
+ * or immediately if mounted directly in 'finishing' / 'results' (stage jump).
+ */
+export function useDismissed(stage: ThinkingStage, ms = DISMISS_MS): boolean {
+  const [gone, setGone] = useState(stage !== 'thinking')
+  useEffect(() => {
+    if (stage === 'thinking') {
+      setGone(false)
+      return
+    }
+    const id = setTimeout(() => setGone(true), ms)
+    return () => clearTimeout(id)
+  }, [stage, ms])
+  return gone
+}
+
 /** Runs the label timeline while 'thinking'; calls onDone once at THINKING_T.done. Returns label index 0–2. */
 export function useThinkingTimeline(stage: ThinkingStage, onDone?: () => void): number {
   const [labelIndex, setLabelIndex] = useState(stage === 'thinking' ? 0 : 2)

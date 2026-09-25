@@ -5,7 +5,7 @@ import { AnimatePresence, motion } from 'motion/react'
 import { useSpring } from '../lib/tune'
 import { BASE, linear } from '../lib/spring'
 import searchIcon from '../assets/steps/search.svg'
-import { ThinkingHeader, THINKING_T, text12, useThinkingTimeline } from './thinking/_shared'
+import { DISMISS_MS, ThinkingHeader, THINKING_T, text12, useThinkingTimeline } from './thinking/_shared'
 import favRunningChannel from '../assets/steps/therunningchannel.png'
 import favRunRepeat from '../assets/steps/runrepeat.png'
 import favReddit from '../assets/steps/reddit.png'
@@ -37,7 +37,7 @@ const CHIP_ENTER_SCALE = 0.6 // chips scale 0.6 → 1 from their center
 const CHIP_FADE_S = 0.2
 const EXPAND_STAGGER_S = 0.03 // per-element delay when re-expanding in results
 const COLLAPSE_HEIGHT_DELAY_S = FADE_S // collapse: fade items out first, then close the gap
-const DISMISS_FADE_S = 0.15 // entering 'results': items fade out, then height SNAPS closed (no spring)
+const DISMISS_FADE_S = DISMISS_MS / 1000 // entering 'finishing': items fade out, then height SNAPS closed (no spring)
 const STEPS_INSET = 0 // px from the content column (0 = aligns with "Assistant steps"; 25 = with status label text)
 
 // ─── Content ──────────────────────────────────────────────────────────────────
@@ -93,10 +93,11 @@ export function Steps({ stage, onDone }: { stage: StepsStage; onDone?: () => voi
     return () => timers.forEach(clearTimeout)
   }, [stage])
 
-  const isResults = stage === 'results'
-  // Stage-driven dismissal (not a user tap): quick fade, then snap height closed
-  const dismiss = isResults && !userToggled
-  const open = !isResults || expanded
+  const isThinking = stage === 'thinking'
+  // Stage-driven dismissal on entering 'finishing' (not a user tap): quick fade, then snap height closed.
+  // Stays collapsed through 'results' until the user taps "Assistant steps".
+  const dismiss = !isThinking && !userToggled
+  const open = isThinking || expanded
 
   // Measure list content so height changes (growth + collapse) spring instead of jumping
   const innerRef = useRef<HTMLDivElement>(null)
@@ -143,7 +144,7 @@ export function Steps({ stage, onDone }: { stage: StepsStage; onDone?: () => voi
                 variants={listVariants}
                 exit="exit"
               >
-                <StepList progress={progress} stagger={isResults} />
+                <StepList progress={progress} stagger={!isThinking} />
               </motion.div>
             )}
           </AnimatePresence>

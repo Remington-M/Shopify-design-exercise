@@ -3,7 +3,7 @@
 import { useRef } from 'react'
 import { motion, useTime, useTransform, type MotionValue } from 'motion/react'
 import { linear } from '../../lib/spring'
-import { ThinkingHeader, useThinkingTimeline, type ThinkingStage } from './_shared'
+import { DISMISS_MS, ThinkingHeader, useDismissed, useThinkingTimeline, type ThinkingStage } from './_shared'
 
 export type ShimmerStage = ThinkingStage
 
@@ -14,7 +14,7 @@ const PULSE_MIN = 0.3
 const ROW_STAGGER_MS = 30 // start offset between consecutive rows
 const HOLD_MS = 1000 // rest after the last row finishes, before looping
 
-const GHOST_FADE = linear(0.15) // 'finishing': ghost fades out
+const GHOST_FADE = linear(DISMISS_MS / 1000) // 'finishing': ghost fades out, then unmounts (height → 0)
 
 // Ghost fill: Figma is ~4% black; darker so it reads
 const GHOST = 'ghost-fill'
@@ -22,11 +22,12 @@ const GHOST_HEX = 'rgba(0,0,0,0.055)'
 
 export function Shimmer({ stage, onDone }: { stage: ShimmerStage; onDone?: () => void }) {
   const labelIndex = useThinkingTimeline(stage, onDone)
+  const gone = useDismissed(stage)
   return (
     <div className="w-[402px] max-w-full">
       <ThinkingHeader stage={stage} labelIndex={labelIndex} />
-      {/* Ghost UI: fades out on 'finishing', unmounted (no height) on 'results' */}
-      {stage !== 'results' && (
+      {/* Ghost UI: on 'finishing' fades out over DISMISS_MS, then unmounts (no height) before results mount */}
+      {!gone && (
         <motion.div
           initial={false}
           animate={{ opacity: stage === 'thinking' ? 1 : 0 }}

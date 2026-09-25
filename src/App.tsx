@@ -14,13 +14,13 @@ import keyboard from './assets/keyboard.png'
 
 type Stage = 'empty' | 'active' | 'thinking' | 'finishing' | 'results'
 const STAGES: Stage[] = ['empty', 'active', 'thinking', 'finishing', 'results']
-const FINISH_HOLD_MS = 900
+const FINISH_HOLD_MS = 900 // "Done" → "Assistant steps" swap, once results are mostly in
 const TITLE_START_S = 0.45 // let the bar settle first
 const TITLE_WORD_FADE_S = 0.4
-const TITLE_RISE_Y = 8
+const TITLE_RISE_Y = 12
 const TITLE_WORD_STAGGER_S = 0.033
 const STEPS_DELAY_MS = 1100 // loader arrives as the title is almost in
-const RESULTS_DELAY_MS = 200 // let the steps dismiss before results mount
+const RESULTS_DELAY_MS = 200 // after 'finishing' starts: let the steps dismiss, then results animate in under "Done"
 
 // Typing: per-character with a little human jitter
 const TYPE_START_MS = 350
@@ -60,13 +60,14 @@ function Prototype() {
 
   const [typed, setTyped] = useState(initialStage === 'empty' || initialStage === 'active' ? '' : QUERY)
   const [typing, setTyping] = useState(false)
-  const [showResults, setShowResults] = useState(initialStage === 'results')
+  const [showResults, setShowResults] = useState(initialStage === 'results' || initialStage === 'finishing')
   useEffect(() => {
-    if (stage !== 'results') { setShowResults(false); return }
+    if (stage === 'results') return // already mounted during 'finishing' (or jumped here)
+    if (stage !== 'finishing') { setShowResults(false); return }
     const t = window.setTimeout(() => setShowResults(true), RESULTS_DELAY_MS)
     return () => clearTimeout(t)
   }, [stage, run])
-  const titleSpring = useSpring('title', { stiffness: 150, dampingRatio: 0.7 })
+  const titleSpring = useSpring('title', { stiffness: 150, dampingRatio: 0.55 })
   const [showSteps, setShowSteps] = useState(initialStage !== 'thinking')
   useEffect(() => {
     if (stage !== 'thinking') { if (!composing) setShowSteps(true); return }
@@ -102,6 +103,7 @@ function Prototype() {
     setTyping(false)
     setKeyboardGone(!(s === 'empty' || s === 'active'))
     setShowSteps(s !== 'thinking' && s !== 'empty' && s !== 'active')
+    setShowResults(s === 'results')
     setStage(s)
     setRun((r) => r + 1)
   }
