@@ -3,7 +3,7 @@ import { AnimatePresence, LayoutGroup, motion } from 'motion/react'
 import { TunePanel, useSpring } from './lib/tune'
 import { BASE, linear } from './lib/spring'
 import { StatusBar } from './components/StatusBar'
-import { DROP, QUERY, SearchBar } from './components/SearchBar'
+import { DROP, QUERY, SearchBar, Y_SPRING } from './components/SearchBar'
 import { Compose } from './screens/Compose'
 import { Steps } from './screens/Steps'
 import { Results } from './screens/Results'
@@ -14,9 +14,11 @@ import keyboard from './assets/keyboard.png'
 type Stage = 'empty' | 'active' | 'thinking' | 'finishing' | 'results'
 const STAGES: Stage[] = ['empty', 'active', 'thinking', 'finishing', 'results']
 const FINISH_HOLD_MS = 900
-const TITLE_START_S = 0.15
-const TITLE_WORD_FADE_S = 0.25
+const TITLE_START_S = 0.45 // let the bar settle first
+const TITLE_WORD_FADE_S = 0.4
+const TITLE_RISE_Y = 15
 const TITLE_WORD_STAGGER_S = 0.033
+const STEPS_DELAY_MS = 750 // loader arrives as the title is almost in
 const RESULTS_DELAY_MS = 200 // let the steps dismiss before results mount
 
 // Typing: per-character with a little human jitter
@@ -38,7 +40,7 @@ function Prototype() {
   const composing = stage === 'empty' || stage === 'active'
   const base = useSpring('base', BASE)
   // Keyboard shares the search bar's Y spring so they drop together (unmounted once off screen)
-  const keyboardSpring = useSpring('searchbar.y', { stiffness: 100, dampingRatio: 0.7 })
+  const keyboardSpring = useSpring('searchbar.y', Y_SPRING)
 
   const [typed, setTyped] = useState(initialStage === 'empty' || initialStage === 'active' ? '' : QUERY)
   const [typing, setTyping] = useState(false)
@@ -48,6 +50,13 @@ function Prototype() {
     const t = window.setTimeout(() => setShowResults(true), RESULTS_DELAY_MS)
     return () => clearTimeout(t)
   }, [stage, run])
+  const titleSpring = useSpring('title', { stiffness: 120, dampingRatio: 1 })
+  const [showSteps, setShowSteps] = useState(initialStage !== 'thinking')
+  useEffect(() => {
+    if (stage !== 'thinking') { if (!composing) setShowSteps(true); return }
+    const t = window.setTimeout(() => setShowSteps(true), STEPS_DELAY_MS)
+    return () => clearTimeout(t)
+  }, [stage, run, composing])
   const [keyboardGone, setKeyboardGone] = useState(!(initialStage === 'empty' || initialStage === 'active'))
   useEffect(() => {
     if (stage !== 'active') return
@@ -76,6 +85,7 @@ function Prototype() {
     setTyped(s === 'empty' || s === 'active' ? '' : QUERY)
     setTyping(false)
     setKeyboardGone(!(s === 'empty' || s === 'active'))
+    setShowSteps(s !== 'thinking' && s !== 'empty' && s !== 'active')
     setStage(s)
     setRun((r) => r + 1)
   }
@@ -116,10 +126,13 @@ function Prototype() {
                   {QUERY.split(' ').map((w, i) => (
                     <motion.span
                       key={i}
-                      className="whitespace-pre"
-                      initial={{ opacity: 0 }}
-                      animate={{ opacity: 1 }}
-                      transition={{ opacity: linear(TITLE_WORD_FADE_S, TITLE_START_S + i * TITLE_WORD_STAGGER_S) }}
+                      className="inline-block whitespace-pre"
+                      initial={{ opacity: 0, y: TITLE_RISE_Y }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{
+                        y: { ...titleSpring, delay: TITLE_START_S + i * TITLE_WORD_STAGGER_S },
+                        opacity: linear(TITLE_WORD_FADE_S, TITLE_START_S + i * TITLE_WORD_STAGGER_S),
+                      }}
                     >
                       {w + (i < QUERY.split(' ').length - 1 ? ' ' : '')}
                     </motion.span>
@@ -127,7 +140,11 @@ function Prototype() {
                 </h1>
               </div>
               <div className="mt-3">
-                <Steps stage={stage} onDone={() => setStage('finishing')} />
+                {showSteps && (
+                  <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ opacity: linear(0.2) }}>
+                    <Steps stage={stage} onDone={() => setStage('finishing')} />
+                  </motion.div>
+                )}
               </div>
               {showResults && <Results />}
             </div>

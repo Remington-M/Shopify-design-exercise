@@ -17,11 +17,17 @@ const GLASS = 'bg-white/75 border-[0.5px] border-white/75 backdrop-blur-[10px]'
 // Geometry (phone is 402 × 874). The bar is anchored by its BOTTOM edge, so it drops as a whole card
 // first, then collapses in height and width once it's near the bottom of the screen.
 const BOTTOM = 874 - (418 + 102) // compose card's bottom inset
+export const Y_SPRING = { stiffness: 150, dampingRatio: 0.7 }
 export const DROP = BOTTOM - 24 // y travel, down to the docked bottom inset (24)
 const COMPOSE = { y: 0, height: 102, left: 12, width: 378 }
 const DOCKED = { y: DROP, height: 56, left: 80, width: 402 - 80 - 16 }
+// Shadows share one structure so they interpolate smoothly; depth changes with the shape
+const SHADOW_COMPOSE = '0px 0px 24px 2px rgba(0,0,0,0.12)'
+const SHADOW_DOCKED = '0px 8px 40px 0px rgba(0,0,0,0.24)'
+const SHADOW_NONE = '0px 8px 40px 0px rgba(0,0,0,0)'
+const SHADOW_T = { type: 'tween' as const, ease: 'easeInOut' as const, duration: 0.45 }
 const BACK_START_X = 64 // the back button starts tucked behind the bar's left edge
-export const SHAPE_DELAY = 0.3 // s: hold the card shape until it's near the bottom
+export const SHAPE_DELAY = 0.22 // s: hold the card shape until it's near the bottom
 
 type Mode = 'empty' | 'active' | 'docked'
 
@@ -32,8 +38,8 @@ function Cursor({ typing }: { typing: boolean }) {
 export function SearchBar({
   mode, typed, typing, onSend, onBack,
 }: { mode: Mode; typed: string; typing: boolean; onSend: () => void; onBack: () => void }) {
-  const Y = useSpring('searchbar.y', { stiffness: 100, dampingRatio: 0.7 })
-  const X = useSpring('searchbar.x', { stiffness: 60, dampingRatio: 0.5 })
+  const Y = useSpring('searchbar.y', Y_SPRING)
+  const X = useSpring('searchbar.x', { stiffness: 90, dampingRatio: 0.5 })
   const base = useSpring('searchbar.base', BASE)
   const docked = mode === 'docked'
   const ready = typed === QUERY && !typing
@@ -46,11 +52,16 @@ export function SearchBar({
           <motion.button
             key="back"
             onClick={onBack}
-            initial={{ x: BACK_START_X, y: -DROP, opacity: 0 }}
-            animate={{ x: 0, y: 0, opacity: 1 }}
+            initial={{ x: BACK_START_X, y: -DROP, opacity: 0, boxShadow: SHADOW_NONE }}
+            animate={{ x: 0, y: 0, opacity: 1, boxShadow: SHADOW_DOCKED }}
             exit={{ opacity: 0 }}
-            transition={{ x: { ...X, delay: SHAPE_DELAY }, y: Y, opacity: linear(0.15) }}
-            className={`absolute bottom-6 left-4 z-10 flex size-14 items-center justify-center rounded-full ${GLASS} shadow-[0_8px_40px_0_rgba(0,0,0,0.24)]`}
+            transition={{
+              x: { ...X, delay: SHAPE_DELAY },
+              y: Y,
+              opacity: linear(0.15, SHAPE_DELAY),
+              boxShadow: { ...SHADOW_T, delay: SHAPE_DELAY },
+            }}
+            className={`absolute bottom-6 left-4 z-10 flex size-14 items-center justify-center rounded-full ${GLASS}`}
           >
             <img src={chevronLeft} className="size-5" alt="" />
           </motion.button>
@@ -61,16 +72,14 @@ export function SearchBar({
         initial={false}
         animate={{
           ...(docked ? DOCKED : COMPOSE),
-          boxShadow: docked
-            ? '0 8px 40px 0 rgba(0,0,0,0.24)'
-            : '0 0 24px 2px rgba(0,0,0,0.12)',
+          boxShadow: docked ? SHADOW_DOCKED : SHADOW_COMPOSE,
         }}
         transition={{
           y: Y,
           height: { ...Y, delay: docked ? SHAPE_DELAY : 0 },
           left: { ...X, delay: docked ? SHAPE_DELAY : 0 },
           width: { ...X, delay: docked ? SHAPE_DELAY : 0 },
-          boxShadow: base,
+          boxShadow: { ...SHADOW_T, delay: docked ? SHAPE_DELAY : 0 },
         }}
         style={{ bottom: BOTTOM, borderRadius: 28 }}
         className={`absolute z-20 overflow-hidden ${GLASS}`}
@@ -79,7 +88,7 @@ export function SearchBar({
         <motion.div
           initial={false}
           animate={{ opacity: docked ? 0 : 1 }}
-          transition={{ opacity: linear(0.15) }}
+          transition={{ opacity: linear(0.15, docked ? SHAPE_DELAY : 0) }}
           className="absolute bottom-0 left-0 flex w-[378px] flex-col gap-1 p-2"
         >
           <div className="flex h-[42px] items-center overflow-hidden p-[10px]">
@@ -120,7 +129,7 @@ export function SearchBar({
         <motion.div
           initial={false}
           animate={{ opacity: docked ? 1 : 0 }}
-          transition={{ opacity: linear(0.2, docked ? 0.1 : 0) }}
+          transition={{ opacity: linear(0.2, docked ? SHAPE_DELAY + 0.1 : 0) }}
           className="pointer-events-none absolute inset-y-0 left-0 flex w-[306px] items-center gap-1 px-2"
         >
           <div className="flex size-9 items-center justify-center">

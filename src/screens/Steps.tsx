@@ -210,7 +210,8 @@ export function Steps({ stage, onDone }: { stage: StepsStage; onDone?: () => voi
         }
       >
         <div ref={innerRef}>
-          <AnimatePresence initial={false} custom={dismiss}>
+          {/* No initial={false} here: it would suppress every chip/row entrance mounted inside */}
+          <AnimatePresence custom={dismiss}>
             {open && (
               <motion.div
                 key="list"
