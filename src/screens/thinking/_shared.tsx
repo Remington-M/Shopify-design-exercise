@@ -64,12 +64,14 @@ function WordLabel({ label }: { label: string }) {
       <motion.span
         key={label}
         className="block whitespace-nowrap"
+        style={{ willChange: 'transform, opacity' }}
         exit={{ opacity: 0, y: LABEL_EXIT_Y, transition: LABEL_EXIT }}
       >
         {label.split(' ').map((w, i, arr) => (
           <motion.span
             key={i}
             className="inline-block"
+            style={{ willChange: 'transform, opacity' }}
             initial={{ opacity: 0, y: WORD_RISE_Y }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ ...wordT, delay: i * WORD_STAGGER_S, opacity: linear(WORD_FADE_S, i * WORD_STAGGER_S) }}

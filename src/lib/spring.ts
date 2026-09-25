@@ -16,6 +16,10 @@ export const spring = (s: Spring) => ({
   stiffness: s.stiffness,
   damping: toDamping(s),
   mass: s.mass ?? 1,
+  // Motion's defaults (restDelta 0.5px) end the spring early and snap to the target. On small moves
+  // that reads as a jerk at the end and swallows sub-pixel overshoot, so run springs to true rest.
+  restDelta: 0.001,
+  restSpeed: 0.001,
 })
 
 /** Simulate 0→1 with unit mass-normalized ODE. Returns positions at 1/fps steps until settled. */

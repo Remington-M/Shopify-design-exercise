@@ -25,11 +25,11 @@ export const CHIP_STAGGER = 0.1
 /** Delay before the first piece starts. */
 export const START_DELAY = 0
 /** Sections rise this many px (Y only — no X on anything but the cards). */
-export const RISE_Y = 25
+export const RISE_Y = 12
 /** Product cards slide in from this many px to the right. */
-export const CARD_X = 64
+export const CARD_X = 32
 /** Product cards scale in from this. */
-export const CARD_SCALE = 0.92
+export const CARD_SCALE = 0.96
 /** Suggestion chips scale in from this (origin center, no Y). */
 export const CHIP_SCALE = 0.6
 /** Suggestion chips also slide in from the right by this. */
@@ -79,6 +79,7 @@ function useEnter() {
       initial: { opacity: 0, y: RISE_Y },
       animate: { opacity: 1, y: 0 },
       transition: { y: move(block, t), opacity: fade(t) },
+      style: { willChange: 'transform, opacity' },
     }),
     /** Shoe cards: X from the right + scale on the card spring. */
     slide: (i: number) => {
