@@ -25,13 +25,15 @@ export const CHIP_STAGGER = 0.1
 /** Delay before the first piece starts. */
 export const START_DELAY = 0
 /** Sections rise this many px (Y only — no X on anything but the cards). */
-export const RISE_Y = 50
+export const RISE_Y = 25
 /** Product cards slide in from this many px to the right. */
 export const CARD_X = 64
 /** Product cards scale in from this. */
 export const CARD_SCALE = 0.92
 /** Suggestion chips scale in from this (origin center, no Y). */
 export const CHIP_SCALE = 0.6
+/** Suggestion chips also slide in from the right by this. */
+export const CHIP_X = 24
 /** Opacity fades are a linear tween (seconds), decoupled from spring motion. */
 export const FADE_DURATION = 0.2
 /** Springs (stiffness + dampingRatio); live-tunable with ?tune. */
@@ -77,26 +79,26 @@ function useEnter() {
     slide: (i: number) => {
       const t = T.shelf + i * CARD_STAGGER
       return {
-        initial: { opacity: 0, x: CARD_X, scale: CARD_SCALE },
-        animate: { opacity: 1, x: 0, scale: 1 },
-        transition: { x: move(card, t), scale: move(card, t), opacity: fade(t) },
+        initial: { opacity: 0, x: CARD_X, y: RISE_Y, scale: CARD_SCALE },
+        animate: { opacity: 1, x: 0, y: 0, scale: 1 },
+        transition: { x: move(card, t), y: move(block, t), scale: move(card, t), opacity: fade(t) },
       }
     },
     /** Suggestion chips: scale only, origin center. */
     pop: (i: number) => {
       const t = T.chips + i * CHIP_STAGGER
       return {
-        initial: { opacity: 0, scale: CHIP_SCALE },
-        animate: { opacity: 1, scale: 1 },
-        transition: { scale: move(chip, t), opacity: fade(t) },
+        initial: { opacity: 0, x: CHIP_X, y: RISE_Y, scale: CHIP_SCALE },
+        animate: { opacity: 1, x: 0, y: 0, scale: 1 },
+        transition: { x: move(card, t), y: move(block, t), scale: move(chip, t), opacity: fade(t) },
         style: { originX: 0.5, originY: 0.5 },
       }
     },
     /** Meta row: opacity only. */
     fadeIn: (t: number) => ({
-      initial: { opacity: 0 },
-      animate: { opacity: 1 },
-      transition: { opacity: fade(t) },
+      initial: { opacity: 0, y: RISE_Y },
+      animate: { opacity: 1, y: 0 },
+      transition: { y: move(block, t), opacity: fade(t) },
     }),
   }
 }
