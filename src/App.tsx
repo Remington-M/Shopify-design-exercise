@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { AnimatePresence, LayoutGroup, motion } from 'motion/react'
-import { TunePanel, useSpring } from './lib/tune'
+import { useSpring } from './lib/tune'
 import { BASE, linear } from './lib/spring'
 import { StatusBar } from './components/StatusBar'
 import { DROP, QUERY, SearchBar, Y_SPRING } from './components/SearchBar'
@@ -223,7 +223,6 @@ function Prototype() {
           </button>
         ))}
       </div>
-      <TunePanel />
     </div>
   )
 }
