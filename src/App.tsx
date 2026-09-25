@@ -17,7 +17,7 @@ const STAGES: Stage[] = ['empty', 'active', 'thinking', 'finishing', 'results']
 const FINISH_HOLD_MS = 1600 // "Done" → "Assistant steps" swap, once results are mostly in
 const TITLE_START_S = 0.45 // let the bar settle first
 const TITLE_WORD_FADE_S = 0.4
-const TITLE_RISE_Y = 24
+const TITLE_RISE_Y = 16
 const TITLE_WORD_STAGGER_S = 0.033
 const STEPS_DELAY_MS = 1100 // loader arrives as the title is almost in
 const RESULTS_DELAY_MS = 200 // after 'finishing' starts: let the steps dismiss, then results animate in under "Done"
@@ -67,7 +67,7 @@ function Prototype() {
     const t = window.setTimeout(() => setShowResults(true), RESULTS_DELAY_MS)
     return () => clearTimeout(t)
   }, [stage, run])
-  const titleSpring = useSpring('title', { stiffness: 150, dampingRatio: 0.55 })
+  const titleSpring = useSpring('title', { stiffness: 150, dampingRatio: 0.5 })
   const [showSteps, setShowSteps] = useState(initialStage !== 'thinking')
   useEffect(() => {
     if (stage !== 'thinking') { if (!composing) setShowSteps(true); return }
