@@ -12,7 +12,7 @@ import sil3 from '../../assets/browse/shoe-3.svg'
 export type BrowseStage = 'thinking' | 'finishing' | 'results'
 
 // ─── Cycle ───────────────────────────────────────────────────────────────────
-const CYCLE_MS = 900 // time each shoe is on stage
+const CYCLE_MS = 1700 // time each shoe is on stage
 const SHOE_TRAVEL_X = 60 // enters from +X (right), exits to -X (left). No scale.
 
 // ─── Springs + fades ─────────────────────────────────────────────────────────

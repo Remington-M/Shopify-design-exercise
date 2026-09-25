@@ -47,8 +47,9 @@ export function SearchBar({
 
   return (
     <>
-      {/* Back button: rides down with the bar (Y), then shoots out from behind it (X) */}
-      <AnimatePresence>
+      {/* Back button: rides down with the bar (Y), then shoots out from behind it (X).
+          initial={false}: when the flow is jumped straight to a docked stage it's just in place. */}
+      <AnimatePresence initial={false}>
         {docked && (
           <motion.button
             key="back"
