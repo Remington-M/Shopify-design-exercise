@@ -14,7 +14,7 @@ import keyboard from './assets/keyboard.png'
 
 type Stage = 'empty' | 'active' | 'thinking' | 'finishing' | 'results'
 const STAGES: Stage[] = ['empty', 'active', 'thinking', 'finishing', 'results']
-const FINISH_HOLD_MS = 900 // "Done" → "Assistant steps" swap, once results are mostly in
+const FINISH_HOLD_MS = 1600 // "Done" → "Assistant steps" swap, once results are mostly in
 const TITLE_START_S = 0.45 // let the bar settle first
 const TITLE_WORD_FADE_S = 0.4
 const TITLE_RISE_Y = 12

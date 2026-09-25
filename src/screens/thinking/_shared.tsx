@@ -26,8 +26,8 @@ const LABEL_EXIT = linear(0.12) // old label fades out fully BEFORE the new one 
 const WORD_RISE_Y = 6 // new label: each word rises from +6px
 const WORD_FADE_S = 0.18
 const WORD_STAGGER_S = 0.04
-const DONE_EXIT = linear(0.15) // "Done" row just fades (no movement)…
-const TOGGLE_ENTER = linear(0.2) // …then "Assistant steps ›" fades in (no movement)
+const DONE_EXIT = linear(0.35) // "Done" row just fades (no movement)…
+const TOGGLE_ENTER = linear(0.45) // …then "Assistant steps ›" fades in (no movement)
 
 export const text12 = 'text-[12px] leading-[16px] tracking-[-0.2px]'
 

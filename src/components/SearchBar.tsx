@@ -18,7 +18,7 @@ const GLASS = 'bg-white/90 border-[0.5px] border-white/75'
 // Geometry (phone is 402 × 874). The bar is anchored by its BOTTOM edge, so it drops as a whole card
 // first, then collapses in height and width once it's near the bottom of the screen.
 const BOTTOM = 874 - (418 + 102) // compose card's bottom inset
-export const Y_SPRING = { stiffness: 150, dampingRatio: 0.7 }
+export const Y_SPRING = { stiffness: 150, dampingRatio: 0.85 } // less overshoot on the drop so the sideways bounce reads
 export const DROP = BOTTOM - 24 // y travel, down to the docked bottom inset (24)
 const COMPOSE = { y: 0, height: 102, left: 12, width: 378 }
 const DOCKED = { y: DROP, height: 56, left: 80, width: 402 - 80 - 16 }
@@ -28,7 +28,9 @@ const SHADOW_DOCKED = '0px 8px 40px 0px rgba(0,0,0,0.24)'
 const SHADOW_NONE = '0px 8px 40px 0px rgba(0,0,0,0)'
 const SHADOW_T = { type: 'tween' as const, ease: 'easeInOut' as const, duration: 0.45 }
 const BACK_START_X = 64 // the back button starts tucked behind the bar's left edge
-export const SHAPE_DELAY = 0.22 // s: hold the card shape until it's near the bottom
+export const SHAPE_DELAY = 0.22 // s: width collapse (bouncy X) starts here
+const HEIGHT_DELAY = 0.08 // s: height collapses early, with the drop
+const CONTENT_FADE = { duration: 0.12, delay: 0.04 } // compose content is gone before the bar lands
 
 type Mode = 'empty' | 'active' | 'docked'
 
@@ -54,13 +56,12 @@ export function SearchBar({
           <motion.button
             key="back"
             onClick={onBack}
-            initial={{ x: BACK_START_X, y: -DROP, opacity: 0, boxShadow: SHADOW_NONE }}
-            animate={{ x: 0, y: 0, opacity: 1, boxShadow: SHADOW_DOCKED }}
+            initial={{ x: BACK_START_X, opacity: 0, boxShadow: SHADOW_NONE }}
+            animate={{ x: 0, opacity: 1, boxShadow: SHADOW_DOCKED }}
             exit={{ opacity: 0 }}
             transition={{
               x: { ...X, delay: SHAPE_DELAY },
-              y: Y,
-              opacity: linear(0.15, SHAPE_DELAY),
+              opacity: linear(0.15, SHAPE_DELAY + 0.05),
               boxShadow: { ...SHADOW_T, delay: SHAPE_DELAY },
             }}
             className={`absolute bottom-6 left-4 z-10 flex size-14 items-center justify-center rounded-full ${GLASS}`}
@@ -78,7 +79,7 @@ export function SearchBar({
         }}
         transition={{
           y: Y,
-          height: { ...Y, delay: docked ? SHAPE_DELAY : 0 },
+          height: { ...Y, delay: docked ? HEIGHT_DELAY : 0 },
           left: { ...X, delay: docked ? SHAPE_DELAY : 0 },
           width: { ...X, delay: docked ? SHAPE_DELAY : 0 },
           boxShadow: { ...SHADOW_T, delay: docked ? SHAPE_DELAY : 0 },
@@ -90,7 +91,7 @@ export function SearchBar({
         <motion.div
           initial={false}
           animate={{ opacity: docked ? 0 : 1 }}
-          transition={{ opacity: linear(0.15, docked ? SHAPE_DELAY : 0) }}
+          transition={{ opacity: docked ? linear(CONTENT_FADE.duration, CONTENT_FADE.delay) : linear(0.15) }}
           className="absolute bottom-0 left-0 flex w-[378px] flex-col gap-1 p-2"
         >
           <div className="flex h-[42px] items-center overflow-hidden p-[10px]">
