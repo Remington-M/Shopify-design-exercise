@@ -1,35 +1,24 @@
 import { useState } from 'react'
 import { motion } from 'motion/react'
-import { spring, toCss, toDamping } from './lib/spring'
+import { TunePanel, useSpring } from './lib/tune'
 
 export default function App() {
   const [on, setOn] = useState(false)
-  const [stiffness, setStiffness] = useState(400)
-  const [dampingRatio, setDampingRatio] = useState(0.6)
-  const s = { stiffness, dampingRatio }
+  const slide = useSpring('slide', { stiffness: 400, dampingRatio: 0.6 })
+  const pop = useSpring('pop', { stiffness: 800, dampingRatio: 0.5 })
 
   return (
-    <main className="font-sans p-8 max-w-[560px] mx-auto">
-      <h1 style={{ fontSize: 20 }}>Spring test</h1>
-      <label style={{ display: 'block' }}>
-        stiffness {stiffness}
-        <input type="range" min={10} max={3000} value={stiffness} onChange={(e) => setStiffness(+e.target.value)} style={{ width: '100%' }} />
-      </label>
-      <label style={{ display: 'block' }}>
-        dampingRatio {dampingRatio.toFixed(2)}
-        <input type="range" min={0.05} max={1.5} step={0.01} value={dampingRatio} onChange={(e) => setDampingRatio(+e.target.value)} style={{ width: '100%' }} />
-      </label>
-      <p style={{ fontSize: 13, opacity: 0.7 }}>
-        damping {toDamping(s).toFixed(2)} · settle ≈ {toCss(s).duration}ms
-      </p>
-      <div onClick={() => setOn(!on)} style={{ height: 120, background: '#eee', borderRadius: 16, padding: 16, cursor: 'pointer' }}>
+    <main className="mx-auto max-w-[560px] p-8 font-sans">
+      <h1 className="text-xl font-semibold">Spring test</h1>
+      <p className="mb-4 text-sm opacity-70">Add ?tune to the URL for live sliders. Tap the track to toggle.</p>
+      <div onClick={() => setOn(!on)} className="h-[120px] cursor-pointer rounded-2xl bg-neutral-100 p-4">
         <motion.div
-          animate={{ x: on ? 400 : 0 }}
-          transition={spring(s)}
-          style={{ width: 88, height: 88, borderRadius: 20, background: '#008060' }}
+          animate={{ x: on ? 380 : 0, scale: on ? 1.15 : 1 }}
+          transition={{ default: slide, scale: pop }}
+          className="size-[88px] rounded-[20px] bg-[#008060]"
         />
       </div>
-      <p style={{ fontSize: 13, opacity: 0.7 }}>Click the track to toggle.</p>
+      <TunePanel />
     </main>
   )
 }
