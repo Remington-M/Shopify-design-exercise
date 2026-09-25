@@ -14,11 +14,14 @@ export const QUERY = 'Shoes for marathon training'
 
 const GLASS = 'bg-white/75 border-[0.5px] border-white/75 backdrop-blur-[10px]'
 
-// Geometry (phone is 402 × 874)
-const TOP = 418
+// Geometry (phone is 402 × 874). The bar is anchored by its BOTTOM edge, so it drops as a whole card
+// first, then collapses in height and width once it's near the bottom of the screen.
+const BOTTOM = 874 - (418 + 102) // compose card's bottom inset
+export const DROP = BOTTOM - 24 // y travel, down to the docked bottom inset (24)
 const COMPOSE = { y: 0, height: 102, left: 12, width: 378 }
-const DOCKED = { y: 794 - TOP, height: 56, left: 80, width: 402 - 80 - 16 }
+const DOCKED = { y: DROP, height: 56, left: 80, width: 402 - 80 - 16 }
 const BACK_START_X = 64 // the back button starts tucked behind the bar's left edge
+export const SHAPE_DELAY = 0.3 // s: hold the card shape until it's near the bottom
 
 type Mode = 'empty' | 'active' | 'docked'
 
@@ -32,7 +35,6 @@ export function SearchBar({
   const Y = useSpring('searchbar.y', { stiffness: 100, dampingRatio: 0.7 })
   const X = useSpring('searchbar.x', { stiffness: 60, dampingRatio: 0.5 })
   const base = useSpring('searchbar.base', BASE)
-  const query = useSpring('searchbar.query', BASE)
   const docked = mode === 'docked'
   const ready = typed === QUERY && !typing
 
@@ -44,11 +46,11 @@ export function SearchBar({
           <motion.button
             key="back"
             onClick={onBack}
-            initial={{ x: BACK_START_X, y: -DOCKED.y, opacity: 0 }}
+            initial={{ x: BACK_START_X, y: -DROP, opacity: 0 }}
             animate={{ x: 0, y: 0, opacity: 1 }}
             exit={{ opacity: 0 }}
-            transition={{ x: X, y: Y, opacity: linear(0.15) }}
-            className={`absolute left-4 top-[794px] z-10 flex size-14 items-center justify-center rounded-full ${GLASS} shadow-[0_8px_40px_0_rgba(0,0,0,0.24)]`}
+            transition={{ x: { ...X, delay: SHAPE_DELAY }, y: Y, opacity: linear(0.15) }}
+            className={`absolute bottom-6 left-4 z-10 flex size-14 items-center justify-center rounded-full ${GLASS} shadow-[0_8px_40px_0_rgba(0,0,0,0.24)]`}
           >
             <img src={chevronLeft} className="size-5" alt="" />
           </motion.button>
@@ -63,8 +65,14 @@ export function SearchBar({
             ? '0 8px 40px 0 rgba(0,0,0,0.24)'
             : '0 0 24px 2px rgba(0,0,0,0.12)',
         }}
-        transition={{ y: Y, height: Y, left: X, width: X, boxShadow: base }}
-        style={{ top: TOP, borderRadius: 28 }}
+        transition={{
+          y: Y,
+          height: { ...Y, delay: docked ? SHAPE_DELAY : 0 },
+          left: { ...X, delay: docked ? SHAPE_DELAY : 0 },
+          width: { ...X, delay: docked ? SHAPE_DELAY : 0 },
+          boxShadow: base,
+        }}
+        style={{ bottom: BOTTOM, borderRadius: 28 }}
         className={`absolute z-20 overflow-hidden ${GLASS}`}
       >
         {/* Compose content: fixed width so the collapse clips it instead of reflowing it */}
@@ -72,7 +80,7 @@ export function SearchBar({
           initial={false}
           animate={{ opacity: docked ? 0 : 1 }}
           transition={{ opacity: linear(0.15) }}
-          className="absolute left-0 top-0 flex w-[378px] flex-col gap-1 p-2"
+          className="absolute bottom-0 left-0 flex w-[378px] flex-col gap-1 p-2"
         >
           <div className="flex h-[42px] items-center overflow-hidden p-[10px]">
             {!typed ? (
@@ -82,20 +90,8 @@ export function SearchBar({
               </>
             ) : (
               <>
-                {!docked && (ready ? (
-                  // Shared element: flies up to become the page title. Only becomes a layout
-                  // element once typing is done, otherwise every keystroke would animate its width.
-                  <motion.p
-                    layoutId="query"
-                    transition={query}
-                    className="whitespace-pre text-[16px] leading-[22px] tracking-[-0.5px] text-black"
-                  >
-                    {typed}
-                  </motion.p>
-                ) : (
-                  <p className="whitespace-pre text-[16px] leading-[22px] tracking-[-0.5px] text-black">{typed}</p>
-                ))}
-                {!docked && <Cursor typing={typing} />}
+                <p className="whitespace-pre text-[16px] leading-[22px] tracking-[-0.5px] text-black">{typed}</p>
+                {!docked && <span className="ml-[2px] flex"><Cursor typing={typing} /></span>}
               </>
             )}
           </div>

@@ -3,7 +3,7 @@ import { AnimatePresence, LayoutGroup, motion } from 'motion/react'
 import { TunePanel, useSpring } from './lib/tune'
 import { BASE, linear } from './lib/spring'
 import { StatusBar } from './components/StatusBar'
-import { QUERY, SearchBar } from './components/SearchBar'
+import { DROP, QUERY, SearchBar } from './components/SearchBar'
 import { Compose } from './screens/Compose'
 import { Steps } from './screens/Steps'
 import { Results } from './screens/Results'
@@ -14,12 +14,15 @@ import keyboard from './assets/keyboard.png'
 type Stage = 'empty' | 'active' | 'thinking' | 'finishing' | 'results'
 const STAGES: Stage[] = ['empty', 'active', 'thinking', 'finishing', 'results']
 const FINISH_HOLD_MS = 900
+const TITLE_START_S = 0.15
+const TITLE_WORD_FADE_S = 0.25
+const TITLE_WORD_STAGGER_S = 0.033
 const RESULTS_DELAY_MS = 200 // let the steps dismiss before results mount
 
 // Typing: per-character with a little human jitter
 const TYPE_START_MS = 350
 const TYPE_IDLE_MS = 500 // cursor goes back to blinking after this
-const charDelay = (i: number, ch: string) => (ch === ' ' ? 150 : 85) + Math.round(30 * Math.sin(i * 1.7))
+const charDelay = (i: number, ch: string) => (ch === ' ' ? 75 : 42) + Math.round(15 * Math.sin(i * 1.7))
 
 const params = new URLSearchParams(location.search)
 const initialStage = (STAGES.find((s) => s === params.get('stage')) ?? 'empty') as Stage
@@ -34,8 +37,8 @@ function Prototype() {
   const [run, setRun] = useState(0) // bump to remount the flow on reset
   const composing = stage === 'empty' || stage === 'active'
   const base = useSpring('base', BASE)
-  const query = useSpring('searchbar.query', BASE)
-  const keyboardSpring = useSpring('keyboard', { stiffness: 100, dampingRatio: 1 })
+  // Keyboard shares the search bar's Y spring so they drop together (unmounted once off screen)
+  const keyboardSpring = useSpring('searchbar.y', { stiffness: 100, dampingRatio: 0.7 })
 
   const [typed, setTyped] = useState(initialStage === 'empty' || initialStage === 'active' ? '' : QUERY)
   const [typing, setTyping] = useState(false)
@@ -108,13 +111,20 @@ function Prototype() {
           {!composing && (
             <div className="absolute inset-x-0 bottom-0 top-[74px] overflow-y-auto pb-[120px]">
               <div className="px-6">
-                <motion.h1
-                  layoutId="query"
-                  transition={query}
-                  className="whitespace-nowrap text-[24px] font-semibold leading-[26px] tracking-[-0.6px] text-black"
-                >
-                  {QUERY}
-                </motion.h1>
+                {/* Title: per-word linear fade */}
+                <h1 className="whitespace-nowrap text-[24px] font-semibold leading-[26px] tracking-[-0.6px] text-black">
+                  {QUERY.split(' ').map((w, i) => (
+                    <motion.span
+                      key={i}
+                      className="whitespace-pre"
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      transition={{ opacity: linear(TITLE_WORD_FADE_S, TITLE_START_S + i * TITLE_WORD_STAGGER_S) }}
+                    >
+                      {w + (i < QUERY.split(' ').length - 1 ? ' ' : '')}
+                    </motion.span>
+                  ))}
+                </h1>
               </div>
               <div className="mt-3">
                 <Steps stage={stage} onDone={() => setStage('finishing')} />
@@ -129,7 +139,7 @@ function Prototype() {
               src={keyboard}
               alt=""
               initial={false}
-              animate={{ y: composing ? 0 : 342 }}
+              animate={{ y: composing ? 0 : Math.max(342, DROP) }}
               transition={keyboardSpring}
               onUpdate={(v) => { if (!composing && Number(v.y) >= 341) setKeyboardGone(true) }}
               className="pointer-events-none absolute left-0 top-[532px] z-10 h-[342px] w-[402px]"

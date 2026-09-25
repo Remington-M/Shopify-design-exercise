@@ -16,27 +16,29 @@ export type StepsStage = 'thinking' | 'finishing' | 'results'
 
 // ─── Timeline (ms from mount of the 'thinking' stage) ─────────────────────────
 const T = {
-  thinkingStep: 600, // "Thinking" row appears in the list
-  searching: 1600, // "Searching" row + label → "Searching the web..."
-  queryFirst: 2000, // first query chip
+  searching: 1000, // "Searching" row + label → "Searching the web..." (status row alone says "Thinking..." until then)
+  queryFirst: 1400, // first query chip
   queryStagger: 300, // gap between query chips (incl. "+ 12 more")
-  reading: 4000, // "Reading" row + label → "Reading 16 sources..."
-  sourceFirst: 4400,
+  reading: 3400, // "Reading" row + label → "Reading 16 sources..."
+  sourceFirst: 3800,
   sourceStagger: 300,
-  done: 7000, // onDone()
+  done: 6400, // onDone()
 }
 
 // ─── Springs (stiffness + dampingRatio; live-tunable with ?tune) ──────────────
 // Springs drive movement + scale; opacity is always a linear tween.
 const SPRINGS = {
   height: BASE, // list container height (grow / collapse) so content below reflows
-  item: BASE, // each step title / chip scaling in
+  item: BASE, // each step title scaling in (0.85 → 1, left origin)
+  chip: { stiffness: 200, dampingRatio: 0.7 }, // each chip popping in (0.6 → 1, center origin)
   label: BASE, // status label swap
   chevron: BASE, // chevron rotate
 }
 const FADE_S = 0.2
 const FADE = linear(FADE_S) // opacity is a linear tween, decoupled from the springs
-const ITEM_ENTER_SCALE = 0.85 // each element scales 0.85 → 1 from its left edge
+const ITEM_ENTER_SCALE = 0.85 // step titles scale 0.85 → 1 from their left edge
+const CHIP_ENTER_SCALE = 0.6 // chips scale 0.6 → 1 from their center
+const CHIP_FADE_S = 0.15
 const EXPAND_STAGGER_S = 0.03 // per-element delay when re-expanding in results
 const COLLAPSE_HEIGHT_DELAY_S = FADE_S // collapse: fade items out first, then close the gap
 const DISMISS_FADE_S = 0.15 // entering 'results': items fade out, then height SNAPS closed (no spring)
@@ -62,18 +64,17 @@ const LABELS = {
 
 type Phase = 'none' | 'thinking' | 'searching' | 'reading'
 type Progress = { phase: Phase; steps: number; queries: number; sources: number }
-const FULL: Progress = { phase: 'reading', steps: 3, queries: QUERIES.length + 1, sources: SOURCES.length + 1 }
+const FULL: Progress = { phase: 'reading', steps: 2, queries: QUERIES.length + 1, sources: SOURCES.length + 1 }
 const EMPTY: Progress = { phase: 'none', steps: 0, queries: 0, sources: 0 }
 
 // Ordered events → progress snapshot
 const EVENTS: { at: number; apply: (p: Progress) => Progress }[] = [
-  { at: T.thinkingStep, apply: (p) => ({ ...p, phase: 'thinking', steps: 1 }) },
-  { at: T.searching, apply: (p) => ({ ...p, phase: 'searching', steps: 2 }) },
+  { at: T.searching, apply: (p) => ({ ...p, phase: 'searching', steps: 1 }) },
   ...Array.from({ length: QUERIES.length + 1 }, (_, i) => ({
     at: T.queryFirst + i * T.queryStagger,
     apply: (p: Progress) => ({ ...p, queries: i + 1 }),
   })),
-  { at: T.reading, apply: (p) => ({ ...p, phase: 'reading', steps: 3 }) },
+  { at: T.reading, apply: (p) => ({ ...p, phase: 'reading', steps: 2 }) },
   ...Array.from({ length: SOURCES.length + 1 }, (_, i) => ({
     at: T.sourceFirst + i * T.sourceStagger,
     apply: (p: Progress) => ({ ...p, sources: i + 1 }),
@@ -235,8 +236,7 @@ function StepList({ progress, stagger }: { progress: Progress; stagger: boolean 
   const d = () => (stagger ? i++ * EXPAND_STAGGER_S : 0)
   return (
     <div className="flex flex-col gap-4">
-      {steps >= 1 && <StepRow title="Thinking" bold={false} delay={d()} />}
-      {steps >= 2 && (
+      {steps >= 1 && (
         <StepRow title="Searching" delay={d()}>
           {QUERIES.slice(0, progress.queries).map((q) => (
             <Chip key={q} delay={d()} icon={<img src={searchIcon} alt="" width={16} height={16} />}>
@@ -246,7 +246,7 @@ function StepList({ progress, stagger }: { progress: Progress; stagger: boolean 
           {progress.queries > QUERIES.length && <Chip key="more" delay={d()}>{MORE}</Chip>}
         </StepRow>
       )}
-      {steps >= 3 && (
+      {steps >= 2 && (
         <StepRow title="Reading" delay={d()}>
           {SOURCES.slice(0, progress.sources).map((s) => (
             <Chip
@@ -300,7 +300,12 @@ function StepRow({
 }
 
 function Chip({ icon, delay, children }: { icon?: React.ReactNode; delay: number; children: React.ReactNode }) {
-  const m = useItemMotion(delay)
+  const chipT = useSpring('steps.chip', SPRINGS.chip)
+  const m = {
+    initial: { opacity: 0, scale: CHIP_ENTER_SCALE },
+    animate: { opacity: 1, scale: 1 },
+    transition: { ...chipT, delay, opacity: linear(CHIP_FADE_S, delay) },
+  }
   return (
     <motion.div
       {...m}
