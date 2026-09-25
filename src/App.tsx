@@ -14,6 +14,7 @@ import keyboard from './assets/keyboard.png'
 type Stage = 'empty' | 'active' | 'thinking' | 'finishing' | 'results'
 const STAGES: Stage[] = ['empty', 'active', 'thinking', 'finishing', 'results']
 const FINISH_HOLD_MS = 900
+const RESULTS_DELAY_MS = 200 // let the steps dismiss before results mount
 
 // Typing: per-character with a little human jitter
 const TYPE_START_MS = 350
@@ -38,6 +39,12 @@ function Prototype() {
 
   const [typed, setTyped] = useState(initialStage === 'empty' || initialStage === 'active' ? '' : QUERY)
   const [typing, setTyping] = useState(false)
+  const [showResults, setShowResults] = useState(initialStage === 'results')
+  useEffect(() => {
+    if (stage !== 'results') { setShowResults(false); return }
+    const t = window.setTimeout(() => setShowResults(true), RESULTS_DELAY_MS)
+    return () => clearTimeout(t)
+  }, [stage, run])
   const [keyboardGone, setKeyboardGone] = useState(!(initialStage === 'empty' || initialStage === 'active'))
   useEffect(() => {
     if (stage !== 'active') return
@@ -112,7 +119,7 @@ function Prototype() {
               <div className="mt-3">
                 <Steps stage={stage} onDone={() => setStage('finishing')} />
               </div>
-              {stage === 'results' && <Results />}
+              {showResults && <Results />}
             </div>
           )}
 

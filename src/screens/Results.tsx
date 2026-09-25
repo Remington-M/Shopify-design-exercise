@@ -16,26 +16,40 @@ import source2 from '../assets/results/source-2.png'
 import source3 from '../assets/results/source-3.png'
 
 // ─── Direction knobs ────────────────────────────────────────────────
-/** Seconds between each piece in the vertical stack. */
-export const STAGGER = 0.06
-/** Seconds between product cards (they run inside their own slot in the stack). */
+/** Seconds between each section (intro → header → shelf → follow-up → chips → meta). */
+export const STAGGER = 0.05
+/** Seconds between product cards (inside the shelf's slot). */
 export const CARD_STAGGER = 0.05
+/** Seconds between the two suggestion chips. */
+export const CHIP_STAGGER = 0.1
 /** Delay before the first piece starts. */
 export const START_DELAY = 0
-/** Blocks rise this many px. */
-export const RISE_Y = 16
+/** Sections rise this many px (Y only — no X on anything but the cards). */
+export const RISE_Y = 50
 /** Product cards slide in from this many px to the right. */
 export const CARD_X = 64
+/** Product cards scale in from this. */
+export const CARD_SCALE = 0.92
+/** Suggestion chips scale in from this (origin center, no Y). */
+export const CHIP_SCALE = 0.6
+/** Opacity fades are a linear tween (seconds), decoupled from spring motion. */
+export const FADE_DURATION = 0.2
 /** Springs (stiffness + dampingRatio); live-tunable with ?tune. */
 export const SPRINGS = {
-  block: BASE, // results.block — text, header, follow-up, meta
-  card: BASE, // results.card — product cards
+  block: BASE, // results.block — intro, header, follow-up text (Y)
+  card: { stiffness: 150, dampingRatio: 0.65 }, // results.card — card X + scale
+  chip: { stiffness: 200, dampingRatio: 0.7 }, // results.chip — chip scale
 }
-/** Opacity fades are a linear tween (seconds), decoupled from the spring motion. */
-export const FADE_DURATION = 0.2
 
-// Order in the vertical stagger (index × STAGGER). Cards start at SHELF and add CARD_STAGGER each.
-const ORDER = { text: 0, header: 1, shelf: 2, followText: 3, suggestion: 4, meta: 6 } as const
+// Timeline (seconds from START_DELAY). Meta row fades in last, no movement.
+const T = {
+  text: 0,
+  header: STAGGER,
+  shelf: 2 * STAGGER,
+  followText: 3 * STAGGER,
+  chips: 4 * STAGGER,
+}
+const T_META = T.chips + CHIP_STAGGER + STAGGER // after the last chip
 // ────────────────────────────────────────────────────────────────────
 
 const PRODUCTS: Product[] = [
@@ -49,20 +63,40 @@ const SOURCES = [source1, source2, source3]
 function useEnter() {
   const block = useSpring('results.block', SPRINGS.block)
   const card = useSpring('results.card', SPRINGS.card)
-  const at = (delay: number, move: typeof block) => ({
-    default: { ...move, delay: START_DELAY + delay },
-    opacity: linear(FADE_DURATION, START_DELAY + delay),
-  })
+  const chip = useSpring('results.chip', SPRINGS.chip)
+  const fade = (t: number) => linear(FADE_DURATION, START_DELAY + t)
+  const move = (s: typeof block, t: number) => ({ ...s, delay: START_DELAY + t })
   return {
-    rise: (slot: number) => ({
+    /** Sections: Y only. */
+    rise: (t: number) => ({
       initial: { opacity: 0, y: RISE_Y },
       animate: { opacity: 1, y: 0 },
-      transition: at(slot * STAGGER, block),
+      transition: { y: move(block, t), opacity: fade(t) },
     }),
-    slide: (i: number) => ({
-      initial: { opacity: 0, x: CARD_X },
-      animate: { opacity: 1, x: 0 },
-      transition: at(ORDER.shelf * STAGGER + i * CARD_STAGGER, card),
+    /** Shoe cards: X from the right + scale on the card spring. */
+    slide: (i: number) => {
+      const t = T.shelf + i * CARD_STAGGER
+      return {
+        initial: { opacity: 0, x: CARD_X, scale: CARD_SCALE },
+        animate: { opacity: 1, x: 0, scale: 1 },
+        transition: { x: move(card, t), scale: move(card, t), opacity: fade(t) },
+      }
+    },
+    /** Suggestion chips: scale only, origin center. */
+    pop: (i: number) => {
+      const t = T.chips + i * CHIP_STAGGER
+      return {
+        initial: { opacity: 0, scale: CHIP_SCALE },
+        animate: { opacity: 1, scale: 1 },
+        transition: { scale: move(chip, t), opacity: fade(t) },
+        style: { originX: 0.5, originY: 0.5 },
+      }
+    },
+    /** Meta row: opacity only. */
+    fadeIn: (t: number) => ({
+      initial: { opacity: 0 },
+      animate: { opacity: 1 },
+      transition: { opacity: fade(t) },
     }),
   }
 }
@@ -86,7 +120,7 @@ export function Results() {
       style={{ fontFamily: 'system-ui, -apple-system, "Segoe UI", Roboto, sans-serif' }}
     >
       {/* Intro text block */}
-      <motion.p {...enter.rise(ORDER.text)} className={`p-[4px] ${body}`}>
+      <motion.p {...enter.rise(T.text)} className={`p-[4px] ${body}`}>
         For marathon training, the key decision is choosing between{' '}
         <span className="font-semibold">carbon-plated super shoes</span> (for race day and speed work) and{' '}
         <span className="font-semibold">daily trainers</span> (for long runs and easy miles).
@@ -94,7 +128,7 @@ export function Results() {
 
       {/* Category: header + shelf */}
       <div className="flex flex-col gap-[12px]">
-        <motion.div {...enter.rise(ORDER.header)} className="flex items-start gap-[4px] px-[4px]">
+        <motion.div {...enter.rise(T.header)} className="flex items-start gap-[4px] px-[4px]">
           <div className="flex min-w-0 flex-1 flex-col gap-px text-black">
             <h2 className="text-[18px] font-semibold leading-[20px] tracking-[-0.5px]">Carbon-plated super shoes</h2>
             <p className="text-[14px] leading-[20px] tracking-[-0.2px]">
@@ -122,7 +156,7 @@ export function Results() {
 
       {/* Follow-up */}
       <div className="flex flex-col gap-[8px]">
-        <motion.p {...enter.rise(ORDER.followText)} className={`p-[4px] ${body}`}>
+        <motion.p {...enter.rise(T.followText)} className={`p-[4px] ${body}`}>
           Are you training for a specific marathon goal (time target), or is this your first marathon where comfort
           is the priority?
         </motion.p>
@@ -131,7 +165,7 @@ export function Results() {
             <motion.button
               key={label}
               type="button"
-              {...enter.rise(ORDER.suggestion + i)}
+              {...enter.pop(i)}
               className="rounded-full border-[0.5px] border-[rgba(24,59,78,0.06)] bg-white px-[12px] py-[8px] text-[12px] font-semibold leading-[16px] tracking-[-0.2px] text-black shadow-[0_2px_8px_rgba(0,0,0,0.06),0_-1px_30px_#f2f4f5]"
             >
               {label}
@@ -141,7 +175,7 @@ export function Results() {
       </div>
 
       {/* Meta row */}
-      <motion.div {...enter.rise(ORDER.meta)} className="flex h-[21px] items-center gap-[12px] px-[4px]">
+      <motion.div {...enter.fadeIn(T_META)} className="flex h-[21px] items-center gap-[12px] px-[4px]">
         {[thumbsUp, thumbsDown, repeat, overflow].map((src) => (
           <img key={src} src={src} alt="" className="block size-[16px]" />
         ))}

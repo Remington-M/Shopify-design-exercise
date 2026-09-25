@@ -39,6 +39,7 @@ const FADE = linear(FADE_S) // opacity is a linear tween, decoupled from the spr
 const ITEM_ENTER_SCALE = 0.85 // each element scales 0.85 → 1 from its left edge
 const EXPAND_STAGGER_S = 0.03 // per-element delay when re-expanding in results
 const COLLAPSE_HEIGHT_DELAY_S = FADE_S // collapse: fade items out first, then close the gap
+const DISMISS_FADE_S = 0.15 // entering 'results': items fade out, then height SNAPS closed (no spring)
 const LABEL_SHIFT_Y = 8
 const STEPS_INSET = 0 // px from the content column (0 = aligns with "Assistant steps"; 25 = with status label text)
 
@@ -79,6 +80,10 @@ const EVENTS: { at: number; apply: (p: Progress) => Progress }[] = [
   })),
 ]
 
+const listVariants = {
+  exit: (dismiss: boolean) => ({ opacity: 0, transition: linear(dismiss ? DISMISS_FADE_S : FADE_S) }),
+}
+
 const text12 = 'text-[12px] leading-[16px] tracking-[-0.2px]'
 
 export function Steps({ stage, onDone }: { stage: StepsStage; onDone?: () => void }) {
@@ -88,6 +93,7 @@ export function Steps({ stage, onDone }: { stage: StepsStage; onDone?: () => voi
 
   const [progress, setProgress] = useState<Progress>(stage === 'thinking' ? EMPTY : FULL)
   const [expanded, setExpanded] = useState(false)
+  const [userToggled, setUserToggled] = useState(false)
 
   // Run the timeline while thinking
   const onDoneRef = useRef(onDone)
@@ -110,6 +116,8 @@ export function Steps({ stage, onDone }: { stage: StepsStage; onDone?: () => voi
   }, [stage])
 
   const isResults = stage === 'results'
+  // Stage-driven dismissal (not a user tap): quick fade, then snap height closed
+  const dismiss = isResults && !userToggled
   const open = !isResults || expanded
   const label =
     stage !== 'thinking'
@@ -141,7 +149,10 @@ export function Steps({ stage, onDone }: { stage: StepsStage; onDone?: () => voi
             <motion.button
               key="toggle"
               type="button"
-              onClick={() => setExpanded((v) => !v)}
+              onClick={() => {
+                setUserToggled(true)
+                setExpanded((v) => !v)
+              }}
               aria-expanded={expanded}
               className={`flex cursor-pointer items-center font-medium ${text12}`}
               initial={{ opacity: 0, y: LABEL_SHIFT_Y }}
@@ -191,17 +202,21 @@ export function Steps({ stage, onDone }: { stage: StepsStage; onDone?: () => voi
       <motion.div
         initial={false}
         animate={{ height: open ? contentH : 0 }}
-        transition={{ ...heightT, delay: open ? 0 : COLLAPSE_HEIGHT_DELAY_S }}
+        transition={
+          dismiss
+            ? { duration: 0, delay: DISMISS_FADE_S }
+            : { ...heightT, delay: open ? 0 : COLLAPSE_HEIGHT_DELAY_S }
+        }
       >
         <div ref={innerRef}>
-          <AnimatePresence initial={false}>
+          <AnimatePresence initial={false} custom={dismiss}>
             {open && (
               <motion.div
                 key="list"
                 className="pt-2"
                 style={{ paddingLeft: STEPS_INSET }}
-                exit={{ opacity: 0 }}
-                transition={{ opacity: FADE }}
+                variants={listVariants}
+                exit="exit"
               >
                 <StepList progress={progress} stagger={isResults} />
               </motion.div>
