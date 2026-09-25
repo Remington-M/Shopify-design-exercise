@@ -12,7 +12,8 @@ import searchNav from '../assets/search-nav.svg'
 
 export const QUERY = 'Shoes for marathon training'
 
-const GLASS = 'bg-white/75 border-[0.5px] border-white/75 backdrop-blur-[10px]'
+// No backdrop blur: it forced a full repaint every frame while the bar resizes, which dropped frames
+const GLASS = 'bg-white/90 border-[0.5px] border-white/75'
 
 // Geometry (phone is 402 × 874). The bar is anchored by its BOTTOM edge, so it drops as a whole card
 // first, then collapses in height and width once it's near the bottom of the screen.

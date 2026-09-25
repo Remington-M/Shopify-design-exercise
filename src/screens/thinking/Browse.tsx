@@ -5,9 +5,9 @@ import { AnimatePresence, motion } from 'motion/react'
 import { useSpring } from '../../lib/tune'
 import { linear, type Spring } from '../../lib/spring'
 import { ThinkingHeader, useThinkingTimeline, text12 } from './_shared'
-import sil1 from '../../assets/browse/sil-1.png'
-import sil2 from '../../assets/browse/sil-2.png'
-import sil3 from '../../assets/browse/sil-3.png'
+import sil1 from '../../assets/browse/shoe-1.svg'
+import sil2 from '../../assets/browse/shoe-2.svg'
+import sil3 from '../../assets/browse/shoe-3.svg'
 
 export type BrowseStage = 'thinking' | 'finishing' | 'results'
 
@@ -26,7 +26,7 @@ const CARD_FADE = linear(0.15) // 'finishing': card fades out
 const CARD_BG = '#f5f5f5'
 const SHOE_W = 220
 
-// Silhouettes traced from real running-shoe photos (flat, so they read as generic)
+// Flat 4-tone vector shoes (potrace posterize of running-shoe photos)
 type Shoe = { caption: string; src: string; w: number }
 const SHOES: Shoe[] = [
   { caption: 'Carbon-plated racers', src: sil1, w: 1 },
@@ -35,7 +35,7 @@ const SHOES: Shoe[] = [
   { caption: 'Daily trainers', src: sil1, w: 0.94 },
   { caption: 'Stability', src: sil2, w: 0.96 },
 ]
-const SHOE_OPACITY = 0.12
+const SHOE_OPACITY = 0.85
 
 export function Browse({ stage, onDone }: { stage: BrowseStage; onDone?: () => void }) {
   const labelIndex = useThinkingTimeline(stage, onDone)
@@ -111,7 +111,7 @@ function ShoeSvg({ shoe }: { shoe: Shoe }) {
       src={shoe.src}
       alt=""
       draggable={false}
-      style={{ width: SHOE_W * 1.25 * shoe.w, opacity: SHOE_OPACITY }}
+      style={{ width: SHOE_W * 1.2 * shoe.w, opacity: SHOE_OPACITY }}
       className="block select-none"
     />
   )

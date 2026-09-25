@@ -143,6 +143,7 @@ function Prototype() {
                     <motion.span
                       key={i}
                       className="inline-block whitespace-pre"
+                      style={{ willChange: 'transform, opacity' }}
                       initial={{ opacity: 0, y: TITLE_RISE_Y }}
                       animate={{ opacity: 1, y: 0 }}
                       transition={{
